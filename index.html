@@ -1,427 +1,173 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="ko">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2575.7">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  <meta charset="UTF-8" />
+  <title>오늘의집 큐레이터 CS 챗봇</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",system-ui,sans-serif;
+      background:#0f172a;
+      color:#f9fafb;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      min-height:100vh;
+    }
+    .app{
+      width:100%;
+      max-width:960px;
+      background:#020617;
+      border-radius:20px;
+      box-shadow:0 20px 40px rgba(0,0,0,0.5);
+      display:flex;
+      overflow:hidden;
+      border:1px solid #1f2937;
+    }
+    .main{flex:1;display:flex;flex-direction:column}
+    .chat-body{flex:1;padding:16px;overflow-y:auto;font-size:14px}
+    .row{display:flex;margin-bottom:8px}
+    .row.user{justify-content:flex-end}
+    .bubble{
+      max-width:80%;
+      padding:8px 10px;
+      border-radius:14px;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .bubble.user{
+      background:#38bdf8;
+      color:#0f172a;
+      border-radius:16px 4px 16px 16px;
+    }
+    .bubble.bot{
+      background:#020617;
+      color:#e5e7eb;
+      border:1px solid #1f2937;
+      border-radius:4px 16px 16px 16px;
+    }
+    .footer{border-top:1px solid #1f2937;padding:10px}
+    .input-box{
+      display:flex;
+      gap:8px;
+      padding:6px 8px;
+      border-radius:999px;
+      border:1px solid #1f2937;
+      background:#020617;
+    }
+    textarea{
+      flex:1;
+      resize:none;
+      border:none;
+      outline:none;
+      background:transparent;
+      color:#f9fafb;
+      font-size:13px;
+      font-family:inherit;
+    }
+    textarea::placeholder{color:#6b7280}
+    button{
+      border:none;
+      border-radius:999px;
+      padding:6px 12px;
+      font-size:12px;
+      font-weight:600;
+      background:linear-gradient(135deg,#38bdf8,#22c55e);
+      color:#0b1120;
+      cursor:pointer;
+    }
+    button:disabled{opacity:.6;cursor:default}
   </style>
 </head>
 <body>
-<p class="p1">&lt;!DOCTYPE html&gt;</p>
-<p class="p1">&lt;html lang="ko"&gt;</p>
-<p class="p1">&lt;head&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="UTF-8" /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;오늘의집 큐레이터 CS 챗봇&lt;/title&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1" /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;style&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>* { box-sizing: border-box; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>body {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>margin: 0;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", system-ui, sans-serif;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: #0f172a;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #f9fafb;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>justify-content: center;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>align-items: center;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>min-height: 100vh;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.app {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>width: 100%;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>max-width: 960px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: #020617;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 20px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>box-shadow: 0 20px 40px rgba(0,0,0,0.5);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>overflow: hidden;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: 1px solid #1f2937;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.sidebar {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>width: 260px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: linear-gradient(180deg, #020617 0%, #0b1120 100%);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-right: 1px solid #1f2937;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 20px 18px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>flex-direction: column;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>gap: 16px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.logo {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>align-items: center;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>gap: 8px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-weight: 700;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 16px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.logo-badge {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>width: 28px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>height: 28px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 8px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: linear-gradient(135deg,#38bdf8,#22c55e);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>align-items: center;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>justify-content: center;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #0b1120;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-weight: 800;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 14px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.logo-sub {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 11px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #9ca3af;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>margin-top: 2px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.pill {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 999px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 11px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 4px 10px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: rgba(148,163,184,0.08);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: 1px solid rgba(148,163,184,0.25);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #e5e7eb;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: inline-flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>align-items: center;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>gap: 6px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.pill-dot {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>width: 6px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>height: 6px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 999px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: #22c55e;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.side-section-title {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 11px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-weight: 600;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>letter-spacing: .06em;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>text-transform: uppercase;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #6b7280;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>margin-bottom: 4px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.side-card {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 14px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 10px 12px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: rgba(15,23,42,0.9);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: 1px solid rgba(31,41,55,0.9);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 12px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #d1d5db;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>line-height: 1.5;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.side-card strong {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #e5e7eb;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.main {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>flex: 1;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>flex-direction: column;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: radial-gradient(circle at top,#0b1120 0,#020617 60%,#020617 100%);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.main-header {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 16px 18px 10px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-bottom: 1px solid #1f2937;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>justify-content: space-between;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>align-items: center;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.main-title {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 14px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-weight: 600;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.main-subtitle {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 11px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #9ca3af;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>margin-top: 2px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.tag {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 11px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 4px 8px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 999px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: 1px solid rgba(148,163,184,0.4);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #e5e7eb;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: rgba(15,23,42,0.9);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.chat-body {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>flex: 1;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 14px 18px 12px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>overflow-y: auto;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 14px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.msg-row {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>margin-bottom: 10px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.msg-row.user {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>justify-content: flex-end;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.msg-row.bot {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>justify-content: flex-start;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.msg-bubble {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>max-width: 80%;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 9px 11px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 14px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>line-height: 1.5;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>word-break: break-word;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>white-space: pre-wrap;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.msg-bubble.user {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: #38bdf8;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #0f172a;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 16px 4px 16px 16px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-weight: 500;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.msg-bubble.bot {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: #020617;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #e5e7eb;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 4px 16px 16px 16px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: 1px solid #1f2937;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.msg-meta {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 10px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #6b7280;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>margin-top: 3px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.chat-footer {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-top: 1px solid #1f2937;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 10px 14px 14px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.input-box {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>gap: 10px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: #020617;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 999px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 6px 6px 6px 14px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: 1px solid #1f2937;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>align-items: center;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>textarea {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>flex: 1;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: transparent;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: none;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>outline: none;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>resize: none;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #f9fafb;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 13px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-family: inherit;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>textarea::placeholder {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #6b7280;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.send-btn {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: none;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 999px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 7px 14px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 12px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-weight: 600;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: linear-gradient(135deg,#38bdf8,#22c55e);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #0b1120;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>cursor: pointer;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: inline-flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>align-items: center;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>gap: 6px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.send-btn:disabled {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>opacity: 0.6;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>cursor: default;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.chip-row {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>display: flex;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>flex-wrap: wrap;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>gap: 6px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>margin-top: 8px;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>.chip {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>font-size: 11px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>padding: 4px 9px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border-radius: 999px;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>border: 1px solid #1f2937;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>background: rgba(15,23,42,0.9);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>color: #9ca3af;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>cursor: pointer;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>@media (max-width: 800px) {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>.app { flex-direction: column; border-radius: 0; height: 100vh; }</p>
-<p class="p1"><span class="Apple-converted-space">      </span>.sidebar { display: none; }</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/style&gt;</p>
-<p class="p1">&lt;/head&gt;</p>
-<p class="p1">&lt;body&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="app"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;aside class="sidebar"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="logo"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="logo-badge"&gt;OH&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div&gt;큐레이터 CS 챗봇&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="logo-sub"&gt;오늘의집·운영팀 전용 가이드&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="pill"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="pill-dot"&gt;&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;span&gt;실시간 응답 · LLM 기반&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="side-section-title"&gt;추천 질문&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="side-card"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>• 큐레이터 링크 발급 기준이 어떻게 되나요?&lt;br /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>• 계약 큐레이터 정산 주기가 궁금해요.&lt;br /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>• 어뷰징 의심 시 어떻게 대응해야 하나요?&lt;br /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>• 캠페인 단위로 성과를 보고 싶어요.</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="side-section-title"&gt;챗봇 안내&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="side-card"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>이 챗봇은 &lt;strong&gt;오늘의집 큐레이터 운영 문서&lt;/strong&gt;와&lt;br /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>실제 문의 사례를 기반으로 학습되어 있습니다.&lt;br /&gt;&lt;br /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>명확하지 않은 내용은 추측하지 않고&lt;br /&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>담당자에게 확인이 필요하다고 안내합니다.</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/aside&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;main class="main"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="main-header"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="main-title"&gt;오늘의집 큐레이터 CS 챗봇&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="main-subtitle"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>큐레이터 활동 · 링크 · 정산 · 계약 관련 문의를 도와드려요.</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="tag"&gt;beta · 내부 운영용&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div id="chatBody" class="chat-body"&gt;&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="chat-footer"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="input-box"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;textarea id="chatInput" rows="1"</p>
-<p class="p1"><span class="Apple-converted-space">            </span>placeholder="질문을 입력하고 Enter를 눌러보세요. (Shift+Enter 줄바꿈)"&gt;&lt;/textarea&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;button id="sendBtn" class="send-btn"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">            </span>&lt;span id="sendLabel"&gt;전송&lt;/span&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;/button&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="chip-row"&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="chip"&gt;큐레이터 링크 발급 기준&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="chip"&gt;계약/비계약 큐레이터 차이&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="chip"&gt;정산 일정 &amp; 최소 금액&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="chip"&gt;어뷰징 의심 시 프로세스&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>&lt;/main&gt;</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;script&gt;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>// 🔧 여기를 Mina n8n Webhook Production URL로 바꿔줘!</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const WEBHOOK_URL = "https://n8n.co-workerhou.se/webhook/public-chatbot";</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>const chatBody = document.getElementById("chatBody");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const chatInput = document.getElementById("chatInput");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const sendBtn = document.getElementById("sendBtn");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const sendLabel = document.getElementById("sendLabel");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const chips = document.querySelectorAll(".chip");</p>
-<p class="p1"><span class="Apple-converted-space">    </span>const sessionId = "sess_" + Math.random().toString(36).slice(2);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>function addMessage(text, role, opts = {}) {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>const row = document.createElement("div");</p>
-<p class="p1"><span class="Apple-converted-space">      </span>row.className = "msg-row " + role;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>const col = document.createElement("div");</p>
-<p class="p1"><span class="Apple-converted-space">      </span>col.style.maxWidth = "100%";</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>const bubble = document.createElement("div");</p>
-<p class="p1"><span class="Apple-converted-space">      </span>bubble.className = "msg-bubble " + role;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>bubble.textContent = text;</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>col.appendChild(bubble);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>if (opts.meta) {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>const meta = document.createElement("div");</p>
-<p class="p1"><span class="Apple-converted-space">        </span>meta.className = "msg-meta";</p>
-<p class="p1"><span class="Apple-converted-space">        </span>meta.textContent = opts.meta;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>col.appendChild(meta);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>row.appendChild(col);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>chatBody.appendChild(row);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>chatBody.scrollTop = chatBody.scrollHeight;</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>function setLoading(isLoading) {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>sendBtn.disabled = isLoading;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>sendLabel.textContent = isLoading ? "답변 생성 중..." : "전송";</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>async function sendMessage(text) {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>if (!text.trim()) return;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>addMessage(text.trim(), "user");</p>
-<p class="p1"><span class="Apple-converted-space">      </span>setLoading(true);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">      </span>try {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>const res = await fetch(WEBHOOK_URL, {</p>
-<p class="p1"><span class="Apple-converted-space">          </span>method: "POST",</p>
-<p class="p1"><span class="Apple-converted-space">          </span>headers: { "Content-Type": "application/json" },</p>
-<p class="p1"><span class="Apple-converted-space">          </span>body: JSON.stringify({</p>
-<p class="p1"><span class="Apple-converted-space">            </span>message: text.trim(),</p>
-<p class="p1"><span class="Apple-converted-space">            </span>sessionId</p>
-<p class="p1"><span class="Apple-converted-space">          </span>})</p>
-<p class="p1"><span class="Apple-converted-space">        </span>});</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">        </span>if (!res.ok) {</p>
-<p class="p1"><span class="Apple-converted-space">          </span>throw new Error("HTTP " + res.status);</p>
-<p class="p1"><span class="Apple-converted-space">        </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">        </span>const data = await res.json();</p>
-<p class="p1"><span class="Apple-converted-space">        </span>const answer =</p>
-<p class="p1"><span class="Apple-converted-space">          </span>(data &amp;&amp; data.answer) ||</p>
-<p class="p1"><span class="Apple-converted-space">          </span>"답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";</p>
-<p class="p1"><span class="Apple-converted-space">        </span>addMessage(answer, "bot");</p>
-<p class="p1"><span class="Apple-converted-space">      </span>} catch (err) {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>console.error(err);</p>
-<p class="p1"><span class="Apple-converted-space">        </span>addMessage(</p>
-<p class="p1"><span class="Apple-converted-space">          </span>"네트워크 오류가 발생했어요. 인터넷 연결을 확인하시고 다시 시도해 주세요.",</p>
-<p class="p1"><span class="Apple-converted-space">          </span>"bot"</p>
-<p class="p1"><span class="Apple-converted-space">        </span>);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>} finally {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>setLoading(false);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>}</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>// 초기 안내 메시지</p>
-<p class="p1"><span class="Apple-converted-space">    </span>addMessage(</p>
-<p class="p1"><span class="Apple-converted-space">      </span>"안녕하세요, 오늘의집 큐레이터 CS 챗봇입니다.\n" +</p>
-<p class="p1"><span class="Apple-converted-space">      </span>"큐레이터 활동, 링크 발급, 정산, 계약 관련 궁금한 내용을 편하게 물어보세요 :)\n\n" +</p>
-<p class="p1"><span class="Apple-converted-space">      </span>"※ 답변이 애매할 경우에는 담당자 확인이 필요하다고 안내드릴 수 있어요.",</p>
-<p class="p1"><span class="Apple-converted-space">      </span>"bot"</p>
-<p class="p1"><span class="Apple-converted-space">    </span>);</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>// 전송 버튼</p>
-<p class="p1"><span class="Apple-converted-space">    </span>sendBtn.addEventListener("click", () =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>const text = chatInput.value;</p>
-<p class="p1"><span class="Apple-converted-space">      </span>chatInput.value = "";</p>
-<p class="p1"><span class="Apple-converted-space">      </span>sendMessage(text);</p>
-<p class="p1"><span class="Apple-converted-space">    </span>});</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>// Enter 전송, Shift+Enter 줄바꿈</p>
-<p class="p1"><span class="Apple-converted-space">    </span>chatInput.addEventListener("keydown", (e) =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>if (e.key === "Enter" &amp;&amp; !e.shiftKey) {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>e.preventDefault();</p>
-<p class="p1"><span class="Apple-converted-space">        </span>const text = chatInput.value;</p>
-<p class="p1"><span class="Apple-converted-space">        </span>chatInput.value = "";</p>
-<p class="p1"><span class="Apple-converted-space">        </span>sendMessage(text);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>}</p>
-<p class="p1"><span class="Apple-converted-space">    </span>});</p>
-<p class="p2"><br></p>
-<p class="p1"><span class="Apple-converted-space">    </span>// 추천 질문 chip 클릭</p>
-<p class="p1"><span class="Apple-converted-space">    </span>chips.forEach((chip) =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">      </span>chip.addEventListener("click", () =&gt; {</p>
-<p class="p1"><span class="Apple-converted-space">        </span>const text = chip.textContent.trim();</p>
-<p class="p1"><span class="Apple-converted-space">        </span>sendMessage(text);</p>
-<p class="p1"><span class="Apple-converted-space">      </span>});</p>
-<p class="p1"><span class="Apple-converted-space">    </span>});</p>
-<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
-<p class="p1">&lt;/body&gt;</p>
-<p class="p1">&lt;/html&gt;</p>
+  <div class="app">
+    <main class="main">
+      <div style="padding:12px 16px;border-bottom:1px solid #1f2937">
+        <div style="font-size:14px;font-weight:600">오늘의집 큐레이터 CS 챗봇</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:2px">
+          큐레이터 활동 · 링크 · 정산 · 계약 관련 문의를 도와드려요.
+        </div>
+      </div>
+      <div id="chatBody" class="chat-body"></div>
+      <div class="footer">
+        <div class="input-box">
+          <textarea id="chatInput" rows="1"
+            placeholder="질문을 입력하고 Enter를 눌러보세요. (Shift+Enter 줄바꿈)"></textarea>
+          <button id="sendBtn"><span id="sendLabel">전송</span></button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const WEBHOOK_URL = "https://n8n.co-workerhou.se/webhook/public-chatbot"; // ← Mina URL 맞게 넣기
+    const chatBody = document.getElementById("chatBody");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const sendLabel = document.getElementById("sendLabel");
+    const sessionId = "sess_" + Math.random().toString(36).slice(2);
+
+    function addMessage(text, role){
+      const row = document.createElement("div");
+      row.className = "row " + role;
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + role;
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      chatBody.appendChild(row);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function setLoading(b){
+      sendBtn.disabled = b;
+      sendLabel.textContent = b ? "답변 생성 중..." : "전송";
+    }
+
+    async function sendMessage(text){
+      if(!text.trim()) return;
+      addMessage(text.trim(),"user");
+      setLoading(true);
+      try{
+        const res = await fetch(WEBHOOK_URL,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ message:text.trim(), sessionId })
+        });
+        if(!res.ok) throw new Error("HTTP "+res.status);
+        const data = await res.json();
+        const answer = (data && data.answer) ||
+          "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
+        addMessage(answer,"bot");
+      }catch(e){
+        console.error(e);
+        addMessage("네트워크 오류가 발생했어요. 다시 시도해 주세요.","bot");
+      }finally{
+        setLoading(false);
+      }
+    }
+
+    // 초기 인사
+    addMessage(
+      "안녕하세요, 오늘의집 큐레이터 CS 챗봇입니다.\n" +
+      "큐레이터 활동, 링크 발급, 정산, 계약 관련 궁금한 내용을 편하게 물어보세요 :)", "bot"
+    );
+
+    sendBtn.addEventListener("click",()=>{
+      const text = chatInput.value;
+      chatInput.value = "";
+      sendMessage(text);
+    });
+
+    chatInput.addEventListener("keydown",(e)=>{
+      if(e.key==="Enter" && !e.shiftKey){
+        e.preventDefault();
+        const text = chatInput.value;
+        chatInput.value = "";
+        sendMessage(text);
+      }
+    });
+  </script>
 </body>
 </html>
