@@ -159,15 +159,26 @@
       chatInput.value = "";
       sendMessage(text);
     });
-
-    chatInput.addEventListener("keydown",(e)=>{
-      if(e.key==="Enter" && !e.shiftKey){
-        e.preventDefault();
-        const text = chatInput.value;
-        chatInput.value = "";
-        sendMessage(text);
-      }
+    
+    let isComposing = false;
+    chatInput.addEventListener("compositionstart", () => {
+      isComposing = true;
     });
+    chatInput.addEventListener("compositionend", () => {
+      isComposing = false;
+    });
+    
+    chatInput.addEventListener("keydown", (e) => {
+    // 한글 조합 중이면 Enter를 입력 확정용으로만 쓰고, 전송은 하지 않음
+    if (isComposing) return;
+  
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const text = chatInput.value;
+      chatInput.value = "";
+      sendMessage(text);
+    }
+  });
   </script>
 </body>
 </html>
