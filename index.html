@@ -1,173 +1,105 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <title>오늘의집 큐레이터 CS 챗봇</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",system-ui,sans-serif;
-      background:#0f172a;
-      color:#f9fafb;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      min-height:100vh;
-    }
-    .app{
-      width:100%;
-      max-width:960px;
-      background:#020617;
-      border-radius:20px;
-      box-shadow:0 20px 40px rgba(0,0,0,0.5);
-      display:flex;
-      overflow:hidden;
-      border:1px solid #1f2937;
-    }
-    .main{flex:1;display:flex;flex-direction:column}
-    .chat-body{flex:1;padding:16px;overflow-y:auto;font-size:14px}
-    .row{display:flex;margin-bottom:8px}
-    .row.user{justify-content:flex-end}
-    .bubble{
-      max-width:80%;
-      padding:8px 10px;
-      border-radius:14px;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-    .bubble.user{
-      background:#38bdf8;
-      color:#0f172a;
-      border-radius:16px 4px 16px 16px;
-    }
-    .bubble.bot{
-      background:#020617;
-      color:#e5e7eb;
-      border:1px solid #1f2937;
-      border-radius:4px 16px 16px 16px;
-    }
-    .footer{border-top:1px solid #1f2937;padding:10px}
-    .input-box{
-      display:flex;
-      gap:8px;
-      padding:6px 8px;
-      border-radius:999px;
-      border:1px solid #1f2937;
-      background:#020617;
-    }
-    textarea{
-      flex:1;
-      resize:none;
-      border:none;
-      outline:none;
-      background:transparent;
-      color:#f9fafb;
-      font-size:13px;
-      font-family:inherit;
-    }
-    textarea::placeholder{color:#6b7280}
-    button{
-      border:none;
-      border-radius:999px;
-      padding:6px 12px;
-      font-size:12px;
-      font-weight:600;
-      background:linear-gradient(135deg,#38bdf8,#22c55e);
-      color:#0b1120;
-      cursor:pointer;
-    }
-    button:disabled{opacity:.6;cursor:default}
-  </style>
-</head>
-<body>
-  <div class="app">
-    <main class="main">
-      <div style="padding:12px 16px;border-bottom:1px solid #1f2937">
-        <div style="font-size:14px;font-weight:600">오늘의집 큐레이터 CS 챗봇</div>
-        <div style="font-size:11px;color:#9ca3af;margin-top:2px">
-          큐레이터 활동 · 링크 · 정산 · 계약 관련 문의를 도와드려요.
-        </div>
-      </div>
-      <div id="chatBody" class="chat-body"></div>
-      <div class="footer">
-        <div class="input-box">
-          <textarea id="chatInput" rows="1"
-            placeholder="질문을 입력하고 Enter를 눌러보세요. (Shift+Enter 줄바꿈)"></textarea>
-          <button id="sendBtn"><span id="sendLabel">전송</span></button>
-        </div>
-      </div>
-    </main>
-  </div>
+<script>
+  // 1) n8n 웹훅 URL – 지금 사용한 엔드포인트 그대로
+  const WEBHOOK_URL = "https://external.co-workerhou.se/n8n/webhook/public-chatbot";
 
-  <script>
-    const WEBHOOK_URL = "https://external.co-workerhou.se/n8n/webhook/public-chatbot"; // ← Mina URL 맞게 넣기
-    const chatBody = document.getElementById("chatBody");
-    const chatInput = document.getElementById("chatInput");
-    const sendBtn = document.getElementById("sendBtn");
-    const sendLabel = document.getElementById("sendLabel");
-    const sessionId = "sess_" + Math.random().toString(36).slice(2);
+  const chatBody = document.getElementById("chatBody");
+  const chatInput = document.getElementById("chatInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const sendLabel = document.getElementById("sendLabel");
+  const sessionId = "sess_" + Math.random().toString(36).slice(2);
 
-    function addMessage(text, role){
-      const row = document.createElement("div");
-      row.className = "row " + role;
-      const bubble = document.createElement("div");
-      bubble.className = "bubble " + role;
-      bubble.textContent = text;
-      row.appendChild(bubble);
-      chatBody.appendChild(row);
-      chatBody.scrollTop = chatBody.scrollHeight;
+  function addMessage(text, role, meta) {
+    const row = document.createElement("div");
+    row.className = "row " + role;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + role;
+
+    bubble.textContent = text;
+
+    // 선택: from(ai/fallback) 같이 메타 표시
+    if (meta && meta.from) {
+      const tag = document.createElement("div");
+      tag.style.fontSize = "10px";
+      tag.style.opacity = "0.7";
+      tag.style.marginTop = "4px";
+      tag.textContent = meta.from === "ai" ? "AI 답변" :
+                        meta.from === "fallback" ? "안내 기본 답변" : meta.from;
+      bubble.appendChild(document.createElement("br"));
+      bubble.appendChild(tag);
     }
 
-    function setLoading(b){
-      sendBtn.disabled = b;
-      sendLabel.textContent = b ? "답변 생성 중..." : "전송";
-    }
+    row.appendChild(bubble);
+    chatBody.appendChild(row);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
 
-    async function sendMessage(text){
-      if(!text.trim()) return;
-      addMessage(text.trim(),"user");
-      setLoading(true);
-      try{
-        const res = await fetch(WEBHOOK_URL,{
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ message:text.trim(), sessionId })
-        });
-        if(!res.ok) throw new Error("HTTP "+res.status);
-        const data = await res.json();
-        const answer = (data && data.answer) ||
-          "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
-        addMessage(answer,"bot");
-      }catch(e){
-        console.error(e);
-        addMessage("네트워크 오류가 발생했어요. 다시 시도해 주세요.","bot");
-      }finally{
-        setLoading(false);
+  function setLoading(b) {
+    sendBtn.disabled = b;
+    sendLabel.textContent = b ? "답변 생성 중..." : "전송";
+  }
+
+  async function sendMessage(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    addMessage(trimmed, "user");
+    setLoading(true);
+
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: trimmed,
+          sessionId
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status);
       }
+
+      // ⬇️ n8n 이 보내는 응답: { answer: "...", from: "ai"|"fallback"|"none" }
+      const data = await res.json();
+
+      const answer =
+        (data && data.answer) ||
+        "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
+
+      const from = data && data.from;
+
+      addMessage(answer, "bot", { from });
+    } catch (e) {
+      console.error(e);
+      addMessage(
+        "네트워크 오류가 발생했어요. 다시 시도해 주세요.",
+        "bot"
+      );
+    } finally {
+      setLoading(false);
     }
+  }
 
-    // 초기 인사
-    addMessage(
-      "안녕하세요, 오늘의집 큐레이터 CS 챗봇입니다.\n" +
-      "큐레이터 활동, 링크 발급, 정산, 계약 관련 궁금한 내용을 편하게 물어보세요 :)", "bot"
-    );
+  // 초기 인사
+  addMessage(
+    "안녕하세요, 오늘의집 큐레이터 CS 챗봇입니다.\n" +
+      "큐레이터 활동, 링크 발급, 정산, 계약 관련 궁금한 내용을 편하게 물어보세요 :)",
+    "bot"
+  );
 
-    sendBtn.addEventListener("click",()=>{
+  sendBtn.addEventListener("click", () => {
+    const text = chatInput.value;
+    chatInput.value = "";
+    sendMessage(text);
+  });
+
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
       const text = chatInput.value;
       chatInput.value = "";
       sendMessage(text);
-    });
-
-    chatInput.addEventListener("keydown",(e)=>{
-      if(e.key==="Enter" && !e.shiftKey){
-        e.preventDefault();
-        const text = chatInput.value;
-        chatInput.value = "";
-        sendMessage(text);
-      }
-    });
-  </script>
-</body>
-</html>
+    }
+  });
+</script>
