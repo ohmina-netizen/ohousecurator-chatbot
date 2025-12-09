@@ -1,4 +1,4 @@
-
+@@ -87,132 +87,192 @@
       <div style="padding:12px 16px;border-bottom:1px solid #1f2937">
         <div style="font-size:14px;font-weight:600">오늘의집 큐레이터 챗봇</div>
         <div style="font-size:11px;color:#9ca3af;margin-top:2px">
@@ -24,9 +24,10 @@
       });
     }
 
-
     // 🔹 동일 도메인의 서버리스 프록시로 호출 (모바일 TLS/네트워크 이슈 완화)
     const WEBHOOK_URL = "/api/chat";
+    const WEBHOOK_FALLBACK_URL =
+      "https://external.co-workerhou.se/n8n/webhook/public-chatbot";
 
     const chatBody = document.getElementById("chatBody");
     const chatInput = document.getElementById("chatInput");
@@ -64,23 +65,28 @@
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(new Error("timeout")), 20000);
 
-      try {
-        // simple request로 보내서 모바일 프리플라이트 최소화
-        const params = new URLSearchParams();
-        params.set("message", trimmed);
-        params.set("sessionId", sessionId);
+      const params = new URLSearchParams();
+      params.set("message", trimmed);
+      params.set("sessionId", sessionId);
 
-        const res = await fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          },
-          cache: "no-store",
-          credentials: "omit",
-          signal: controller.signal,
-          body: params.toString(),
-        });
+      const requestOptions = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "X-Requested-With": "fetch",
+          Accept: "application/json, text/plain, */*",
+        },
+        cache: "no-store",
+        credentials: "omit",
+        mode: "cors",
+        redirect: "follow",
+        signal: controller.signal,
+        keepalive: true,
+        body: params.toString(),
+      };
 
+      async function fire(url) {
+        const res = await fetch(url, requestOptions);
         const status = res.status;
         const bodyText = await res.text();
 
@@ -89,12 +95,25 @@
           data = JSON.parse(bodyText);
         } catch (e) {}
 
-        if (!res.ok) {
+        return { status, bodyText, data, ok: res.ok };
+      }
+
+      try {
+        let attempt = await fire(WEBHOOK_URL);
+
+        if (!attempt.ok && attempt.status === 404) {
+          // edge case: 배포 환경에서 프록시 경로를 찾지 못할 때 직접 웹훅으로 재시도
+          attempt = await fire(WEBHOOK_FALLBACK_URL);
+        }
+
+        if (!attempt.ok) {
           const upstreamMessage =
-            (data && (data.error || data.message || data.raw)) || bodyText;
+            (attempt.data &&
+              (attempt.data.error || attempt.data.message || attempt.data.raw)) ||
+            attempt.bodyText;
           addMessage(
             "⚠️ 서버 응답 오류가 발생했어요.\n" +
-              "- status: " + status + "\n" +
+              "- status: " + attempt.status + "\n" +
               "- body: " + upstreamMessage,
             "bot"
           );
@@ -102,16 +121,44 @@
         }
 
         const answer =
-          (data && (data.answer || data.output || data.message || data.raw)) ||
+          (attempt.data &&
+            (attempt.data.answer ||
+              attempt.data.output ||
+              attempt.data.message ||
+              attempt.data.raw)) ||
           "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
         addMessage(answer, "bot");
       } catch (e) {
         const isTimeout = e && e.message === "timeout";
+        const offlineHint =
+          typeof navigator !== "undefined" && navigator.onLine === false
+            ? "(인터넷 연결이 끊어진 것 같아요.)"
+            : "";
+
+        const hasNavigator = typeof navigator !== "undefined";
+        if (!isTimeout && (!hasNavigator || navigator.onLine !== false)) {
+          try {
+            const attempt = await fire(WEBHOOK_FALLBACK_URL);
+            if (attempt.ok) {
+              const answer =
+                (attempt.data &&
+                  (attempt.data.answer ||
+                    attempt.data.output ||
+                    attempt.data.message ||
+                    attempt.data.raw)) ||
+                "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
+              addMessage(answer, "bot");
+              return;
+            }
+          } catch (_) {}
+        }
+
         addMessage(
           (isTimeout
             ? "⚠️ 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요."
             : "⚠️ 네트워크/브라우저 오류가 발생했어요.") +
+            (offlineHint ? " " + offlineHint : "") +
             "\n- name: " + (e.name || "n/a") +
             "\n- message: " + (e.message || "n/a"),
           "bot"
