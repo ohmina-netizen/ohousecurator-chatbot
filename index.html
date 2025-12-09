@@ -112,7 +112,9 @@
       });
     }
 
+    // 지금 사용 중인 n8n 웹훅 URL
     const WEBHOOK_URL = "https://n8n.co-workerhou.se/webhook/public-chatbot";
+
     const chatBody = document.getElementById("chatBody");
     const chatInput = document.getElementById("chatInput");
     const sendBtn = document.getElementById("sendBtn");
@@ -120,7 +122,7 @@
     const sessionId = "sess_" + Math.random().toString(36).slice(2);
 
     /* ============================
-       2) 메시지 출력 함수 (링크 변환 적용됨)
+       2) 메시지 출력 함수
        ============================ */
     function addMessage(text, role) {
       const row = document.createElement("div");
@@ -142,29 +144,47 @@
     }
 
     /* ============================
-       3) 서버로 메시지 전송
+       3) 서버로 메시지 전송 (에러 디버깅 강화)
        ============================ */
     async function sendMessage(text) {
-      if (!text.trim()) return;
-      addMessage(text.trim(), "user");
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      addMessage(trimmed, "user");
       setLoading(true);
 
       try {
         const res = await fetch(WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text.trim(), sessionId })
+          body: JSON.stringify({ message: trimmed, sessionId }),
         });
 
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          throw new Error("HTTP " + res.status + " / " + errText);
+        }
 
-        const data = await res.json();
-        const answer = (data && data.answer) ||
+        const data = await res.json().catch(() => null);
+        const answer =
+          (data && (data.answer || data.output || data.message)) ||
           "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
         addMessage(answer, "bot");
       } catch (e) {
-        addMessage("네트워크 오류가 발생했어요. 다시 시도해 주세요.", "bot");
+        // 👉 여기서 모바일에서도 에러 내용을 그대로 보여줌
+        addMessage(
+          "⚠️ 네트워크/브라우저 오류가 발생했어요.\n" +
+          "- name: " + (e.name || "n/a") + "\n" +
+          "- message: " + (e.message || "n/a"),
+          "bot"
+        );
+        // UA도 같이 찍어서, 모바일/PC 차이 확인용
+        addMessage(
+          "(debug UA: " + navigator.userAgent + ")",
+          "bot"
+        );
+        console.error(e);
       } finally {
         setLoading(false);
       }
