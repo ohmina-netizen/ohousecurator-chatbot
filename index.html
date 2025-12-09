@@ -112,7 +112,9 @@
     // 🔹 external n8n 웹훅 직접 호출
     const WEBHOOK_URL = "https://external.co-workerhou.se/n8n/webhook/public-chatbot";
     // 테스트용이면 위를 webhook-test/public-chatbot 으로 바꿔도 됨
-
+    // 🔹 동일 도메인의 서버리스 프록시로 호출 (모바일 TLS/네트워크 이슈 완화)
+    const WEBHOOK_URL = "/api/chat";
+    
     const chatBody = document.getElementById("chatBody");
     const chatInput = document.getElementById("chatInput");
     const sendBtn = document.getElementById("sendBtn");
