@@ -12,6 +12,23 @@ function applyCors(res) {
   res.setHeader("Access-Control-Max-Age", "86400"); // cache preflight for 24h
 }
 
+function parseIncomingPayload(rawBody, contentType = "") {
+  const normalized = (rawBody || "").toString("utf8").trim();
+  if (!normalized) return {};
+
+  const isForm = contentType.includes("application/x-www-form-urlencoded");
+  if (isForm) {
+    const params = new URLSearchParams(normalized);
+    const parsed = {};
+    for (const [key, value] of params.entries()) {
+      parsed[key] = value;
+    }
+    return parsed;
+  }
+
+  return JSON.parse(normalized);
+}
+
 module.exports = async (req, res) => {
   if (req.method === "OPTIONS") {
     applyCors(res);
@@ -27,13 +44,16 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // body 파싱
+    // body 파싱 (JSON + x-www-form-urlencoded 지원)
     let body = req.body;
-    if (!body) {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(chunk);
-      const raw = Buffer.concat(chunks).toString("utf8") || "{}";
-      body = JSON.parse(raw);
+    if (!body || typeof body === "string") {
+      let raw = body;
+      if (!raw) {
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        raw = Buffer.concat(chunks);
+      }
+      body = parseIncomingPayload(raw, req.headers["content-type"] || "");
     }
 
     const postData = JSON.stringify({

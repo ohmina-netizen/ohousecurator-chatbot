@@ -112,8 +112,11 @@
       });
     }
 
-    // 프록시 엔드포인트 (/api/chat)
-    const WEBHOOK_URL = "/api/chat";
+    // 기본은 동일 도메인 프록시(`/api/chat`), window.__CURATOR_WEBHOOK_URL__로 재정의 가능
+    const DEFAULT_PROXY_URL = "/api/chat";
+    const WEBHOOK_URL =
+      window.__CURATOR_WEBHOOK_URL__ || DEFAULT_PROXY_URL;
+    const isSameOrigin = !/^https?:\/\//i.test(WEBHOOK_URL);
 
     const chatBody = document.getElementById("chatBody");
     const chatInput = document.getElementById("chatInput");
@@ -154,11 +157,22 @@
       setLoading(true);
 
       try {
-        const res = await fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: trimmed, sessionId }),
-        });
+        const payload = { message: trimmed, sessionId };
+        const requestInit = isSameOrigin
+          ? {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            }
+          : {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+              },
+              body: new URLSearchParams(payload).toString(),
+            };
+
+        const res = await fetch(WEBHOOK_URL, requestInit);
 
         const status = res.status;
         const bodyText = await res.text(); // 응답을 항상 텍스트로 먼저 읽기
