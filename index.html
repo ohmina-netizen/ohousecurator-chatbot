@@ -102,9 +102,6 @@
   </div>
 
   <script>
-    /* ============================
-       1) URL 자동 하이퍼링크 변환
-       ============================ */
     function linkify(text) {
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       return text.replace(urlRegex, (url) => {
@@ -112,11 +109,9 @@
       });
     }
 
-    // 기본은 동일 도메인 프록시(`/api/chat`), window.__CURATOR_WEBHOOK_URL__로 재정의 가능
-    const DEFAULT_PROXY_URL = "/api/chat";
-    const WEBHOOK_URL =
-      window.__CURATOR_WEBHOOK_URL__ || DEFAULT_PROXY_URL;
-    const isSameOrigin = !/^https?:\/\//i.test(WEBHOOK_URL);
+    // 🔹 external n8n 웹훅 직접 호출
+    const WEBHOOK_URL = "https://external.co-workerhou.se/n8n/webhook/public-chatbot";
+    // 테스트용이면 위를 webhook-test/public-chatbot 으로 바꿔도 됨
 
     const chatBody = document.getElementById("chatBody");
     const chatInput = document.getElementById("chatInput");
@@ -124,9 +119,6 @@
     const sendLabel = document.getElementById("sendLabel");
     const sessionId = "sess_" + Math.random().toString(36).slice(2);
 
-    /* ============================
-       2) 메시지 출력 함수
-       ============================ */
     function addMessage(text, role) {
       const row = document.createElement("div");
       row.className = "row " + role;
@@ -146,9 +138,6 @@
       sendLabel.textContent = b ? "답변 생성 중..." : "전송";
     }
 
-    /* ============================
-       3) 서버로 메시지 전송 (상세 에러 출력)
-       ============================ */
     async function sendMessage(text) {
       const trimmed = text.trim();
       if (!trimmed) return;
@@ -157,39 +146,32 @@
       setLoading(true);
 
       try {
-        const payload = { message: trimmed, sessionId };
-        const requestInit = isSameOrigin
-          ? {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            }
-          : {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-              },
-              body: new URLSearchParams(payload).toString(),
-            };
+        // simple request로 보내서 모바일 프리플라이트 최소화
+        const params = new URLSearchParams();
+        params.set("message", trimmed);
+        params.set("sessionId", sessionId);
 
-        const res = await fetch(WEBHOOK_URL, requestInit);
+        const res = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          },
+          body: params.toString(),
+        });
 
         const status = res.status;
-        const bodyText = await res.text(); // 응답을 항상 텍스트로 먼저 읽기
+        const bodyText = await res.text();
 
         let data = null;
         try {
           data = JSON.parse(bodyText);
-        } catch (e) {
-          // JSON이 아니면 그냥 data=null 유지
-        }
+        } catch (e) {}
 
         if (!res.ok) {
-          // 서버가 4xx/5xx 를 준 경우 상세 출력
           addMessage(
             "⚠️ 서버 응답 오류가 발생했어요.\n" +
-            "- status: " + status + "\n" +
-            "- body: " + bodyText,
+              "- status: " + status + "\n" +
+              "- body: " + bodyText,
             "bot"
           );
           return;
@@ -201,11 +183,10 @@
 
         addMessage(answer, "bot");
       } catch (e) {
-        // 진짜 네트워크/브라우저 레벨 에러
         addMessage(
           "⚠️ 네트워크/브라우저 오류가 발생했어요.\n" +
-          "- name: " + (e.name || "n/a") + "\n" +
-          "- message: " + (e.message || "n/a"),
+            "- name: " + (e.name || "n/a") + "\n" +
+            "- message: " + (e.message || "n/a"),
           "bot"
         );
         console.error(e);
@@ -214,39 +195,24 @@
       }
     }
 
-    /* ============================
-       4) 초기 인사말
-       ============================ */
     addMessage(
       "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
-      "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
-      "(답변까지 약 10초 소요)",
+        "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
+        "(답변까지 약 10초 소요)",
       "bot"
     );
 
-    /* ============================
-       5) 이벤트 리스너
-       ============================ */
     sendBtn.addEventListener("click", () => {
       const text = chatInput.value;
       chatInput.value = "";
       sendMessage(text);
     });
 
-    // 한글 입력 중복 전송 방지
     let isComposing = false;
-
-    chatInput.addEventListener("compositionstart", () => {
-      isComposing = true;
-    });
-
-    chatInput.addEventListener("compositionend", () => {
-      isComposing = false;
-    });
-
+    chatInput.addEventListener("compositionstart", () => { isComposing = true; });
+    chatInput.addEventListener("compositionend", () => { isComposing = false; });
     chatInput.addEventListener("keydown", (e) => {
-      if (isComposing) return; // 한글 조합 중이면 Enter 무시
-
+      if (isComposing) return;
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         const text = chatInput.value;
