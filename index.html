@@ -110,8 +110,8 @@
       });
     }
 
-    // 🔹 n8n 웹훅 직접 호출
-    const WEBHOOK_URL = "https://n8n.co-workerhou.se/webhook/public-chatbot";
+    // 🔹 이제는 n8n이 아니라 같은 도메인의 /api/chat 으로만 요청
+    const WEBHOOK_URL = "/api/chat";
 
     const chatBody = document.getElementById("chatBody");
     const chatInput = document.getElementById("chatInput");
@@ -146,17 +146,10 @@
       setLoading(true);
 
       try {
-        // 🔸 프리플라이트 피하려고 x-www-form-urlencoded 사용
-        const params = new URLSearchParams();
-        params.set("message", trimmed);
-        params.set("sessionId", sessionId);
-
         const res = await fetch(WEBHOOK_URL, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          },
-          body: params.toString(),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: trimmed, sessionId }),
         });
 
         const status = res.status;
@@ -203,7 +196,6 @@
       "bot"
     );
 
-    // 이벤트 바인딩
     sendBtn.addEventListener("click", () => {
       const text = chatInput.value;
       chatInput.value = "";
