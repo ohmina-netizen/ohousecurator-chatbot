@@ -3,8 +3,24 @@
 
 const https = require("https");
 
+const ALLOWED_ORIGIN = process.env.CHAT_ALLOWED_ORIGIN || "*";
+
+function applyCors(res) {
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Max-Age", "86400"); // cache preflight for 24h
+}
+
 module.exports = async (req, res) => {
+  if (req.method === "OPTIONS") {
+    applyCors(res);
+    res.statusCode = 204;
+    return res.end();
+  }
+
   if (req.method !== "POST") {
+    applyCors(res);
     res.statusCode = 405;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     return res.end(JSON.stringify({ error: "Method not allowed" }));
@@ -51,6 +67,7 @@ module.exports = async (req, res) => {
       });
 
       proxyRes.on("end", () => {
+        applyCors(res);
         res.statusCode = proxyRes.statusCode || 200;
         res.setHeader("Content-Type", "application/json; charset=utf-8");
 
@@ -67,6 +84,7 @@ module.exports = async (req, res) => {
 
     proxyReq.on("error", (err) => {
       console.error("Proxy error (https):", err);
+      applyCors(res);
       res.statusCode = 500;
       res.setHeader("Content-Type", "application/json; charset=utf-8");
 
@@ -96,6 +114,7 @@ module.exports = async (req, res) => {
     proxyReq.end();
   } catch (err) {
     console.error("Unexpected server error:", err);
+    applyCors(res);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     return res.end(
