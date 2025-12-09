@@ -15,7 +15,10 @@ const PAYLOAD_FORMAT = (process.env.N8N_PAYLOAD_FORMAT || "form").toLowerCase();
 function applyCors(res) {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, X-Requested-With, Accept"
+  );
   res.setHeader("Access-Control-Max-Age", "86400"); // cache preflight for 24h
 }
 
@@ -162,6 +165,7 @@ module.exports = async (req, res) => {
       applyCors(res);
       res.statusCode = 400;
       res.setHeader("Content-Type", "application/json; charset=utf-8");
+
       return res.end(
         JSON.stringify({
           error: "Missing message",
