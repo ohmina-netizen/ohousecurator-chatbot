@@ -1,5 +1,7 @@
 // api/chat.js
-// Vercel Serverless Function (CommonJS 스타일)
+// Vercel Serverless Function — fetch 대신 https 사용
+
+const https = require("https");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
@@ -9,48 +11,68 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Vercel 기본 Node 런타임에서는 body가 이미 파싱되어 있을 수도 있고 아닐 수도 있어서 방어적으로 처리
+    // body 파싱
     let body = req.body;
     if (!body) {
       const chunks = [];
-      for await (const chunk of req) {
-        chunks.push(chunk);
-      }
-      const raw = Buffer.concat(chunks).toString("utf8");
-      body = raw ? JSON.parse(raw) : {};
+      for await (const chunk of req) chunks.push(chunk);
+      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     }
 
-    const { message, sessionId } = body || {};
+    const postData = JSON.stringify({
+      message: body.message,
+      sessionId: body.sessionId,
+    });
 
-    // 여기서 n8n 웹훅으로 서버-서버 요청
-    const n8nResponse = await fetch(
-      "https://n8n.co-workerhou.se/webhook/public-chatbot",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, sessionId }),
-      }
-    );
+    const options = {
+      hostname: "n8n.co-workerhou.se",
+      port: 443,
+      path: "/webhook/public-chatbot",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(postData),
+      },
+    };
 
-    const text = await n8nResponse.text();
+    const proxyReq = https.request(options, (proxyRes) => {
+      let data = "";
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { raw: text };
-    }
+      proxyRes.on("data", (chunk) => {
+        data += chunk;
+      });
 
-    res.statusCode = n8nResponse.status;
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    return res.end(JSON.stringify(data));
+      proxyRes.on("end", () => {
+        res.statusCode = proxyRes.statusCode || 200;
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+
+        try {
+          return res.end(JSON.stringify(JSON.parse(data)));
+        } catch (e) {
+          return res.end(JSON.stringify({ raw: data }));
+        }
+      });
+    });
+
+    proxyReq.on("error", (err) => {
+      res.statusCode = 500;
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      return res.end(
+        JSON.stringify({
+          error: "Proxy error (https)",
+          message: err.message || String(err),
+        })
+      );
+    });
+
+    proxyReq.write(postData);
+    proxyReq.end();
   } catch (err) {
-    console.error("Proxy error:", err);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     return res.end(
       JSON.stringify({
-        error: "Proxy error",
+        error: "Unexpected server error",
         message: err.message || String(err),
       })
     );
