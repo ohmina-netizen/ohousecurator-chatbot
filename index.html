@@ -112,8 +112,8 @@
       });
     }
 
-    // 지금 사용 중인 n8n 웹훅 URL
-    const WEBHOOK_URL = "https://n8n.co-workerhou.se/webhook/public-chatbot";
+    // 🔹 이제는 n8n이 아니라 같은 도메인의 /api/chat 으로 보냄
+    const WEBHOOK_URL = "/api/chat";
 
     const chatBody = document.getElementById("chatBody");
     const chatInput = document.getElementById("chatInput");
@@ -144,7 +144,7 @@
     }
 
     /* ============================
-       3) 서버로 메시지 전송 (에러 디버깅 강화)
+       3) 서버로 메시지 전송
        ============================ */
     async function sendMessage(text) {
       const trimmed = text.trim();
@@ -167,21 +167,13 @@
 
         const data = await res.json().catch(() => null);
         const answer =
-          (data && (data.answer || data.output || data.message)) ||
+          (data && (data.answer || data.output || data.message || data.raw)) ||
           "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
         addMessage(answer, "bot");
       } catch (e) {
-        // 👉 여기서 모바일에서도 에러 내용을 그대로 보여줌
         addMessage(
-          "⚠️ 네트워크/브라우저 오류가 발생했어요.\n" +
-          "- name: " + (e.name || "n/a") + "\n" +
-          "- message: " + (e.message || "n/a"),
-          "bot"
-        );
-        // UA도 같이 찍어서, 모바일/PC 차이 확인용
-        addMessage(
-          "(debug UA: " + navigator.userAgent + ")",
+          "네트워크 오류가 발생했어요. 다시 시도해 주세요.",
           "bot"
         );
         console.error(e);
