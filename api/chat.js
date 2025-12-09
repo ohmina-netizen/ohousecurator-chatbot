@@ -31,9 +31,9 @@ module.exports = async (req, res) => {
     });
 
     const options = {
-      hostname: "n8n.co-workerhou.se",
+      hostname: "external.co-workerhou.se",
       port: 443,
-      path: "/webhook/public-chatbot",
+      path: "/n8n/webhook/public-chatbot",
       method: "POST",
       agent,
       headers: {
@@ -41,6 +41,7 @@ module.exports = async (req, res) => {
         "Content-Length": Buffer.byteLength(postData),
       },
     };
+    
 
     const proxyReq = https.request(options, (proxyRes) => {
       let data = "";
