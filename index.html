@@ -112,7 +112,7 @@
       });
     }
 
-    // 🔹 이제는 n8n이 아니라 같은 도메인의 /api/chat 으로 보냄
+    // 프록시 엔드포인트 (/api/chat)
     const WEBHOOK_URL = "/api/chat";
 
     const chatBody = document.getElementById("chatBody");
@@ -144,7 +144,7 @@
     }
 
     /* ============================
-       3) 서버로 메시지 전송
+       3) 서버로 메시지 전송 (상세 에러 출력)
        ============================ */
     async function sendMessage(text) {
       const trimmed = text.trim();
@@ -160,20 +160,38 @@
           body: JSON.stringify({ message: trimmed, sessionId }),
         });
 
-        if (!res.ok) {
-          const errText = await res.text().catch(() => "");
-          throw new Error("HTTP " + res.status + " / " + errText);
+        const status = res.status;
+        const bodyText = await res.text(); // 응답을 항상 텍스트로 먼저 읽기
+
+        let data = null;
+        try {
+          data = JSON.parse(bodyText);
+        } catch (e) {
+          // JSON이 아니면 그냥 data=null 유지
         }
 
-        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          // 서버가 4xx/5xx 를 준 경우 상세 출력
+          addMessage(
+            "⚠️ 서버 응답 오류가 발생했어요.\n" +
+            "- status: " + status + "\n" +
+            "- body: " + bodyText,
+            "bot"
+          );
+          return;
+        }
+
         const answer =
           (data && (data.answer || data.output || data.message || data.raw)) ||
           "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
         addMessage(answer, "bot");
       } catch (e) {
+        // 진짜 네트워크/브라우저 레벨 에러
         addMessage(
-          "네트워크 오류가 발생했어요. 다시 시도해 주세요.",
+          "⚠️ 네트워크/브라우저 오류가 발생했어요.\n" +
+          "- name: " + (e.name || "n/a") + "\n" +
+          "- message: " + (e.message || "n/a"),
           "bot"
         );
         console.error(e);
@@ -192,15 +210,16 @@
       "bot"
     );
 
+    /* ============================
+       5) 이벤트 리스너
+       ============================ */
     sendBtn.addEventListener("click", () => {
       const text = chatInput.value;
       chatInput.value = "";
       sendMessage(text);
     });
 
-    /* ============================
-       5) 한글 입력 중복 전송 방지
-       ============================ */
+    // 한글 입력 중복 전송 방지
     let isComposing = false;
 
     chatInput.addEventListener("compositionstart", () => {
