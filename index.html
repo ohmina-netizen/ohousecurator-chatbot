@@ -1,214 +1,196 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <title>오늘의집 큐레이터 챗봇</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",system-ui,sans-serif;
-      background:#0f172a;
-      color:#f9fafb;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      min-height:100vh;
-    }
-    .app{
-      width:100%;
-      max-width:960px;
-      background:#020617;
-      border-radius:20px;
-      box-shadow:0 20px 40px rgba(0,0,0,0.5);
-      display:flex;
-      overflow:hidden;
-      border:1px solid #1f2937;
-    }
-    .main{flex:1;display:flex;flex-direction:column}
-    .chat-body{flex:1;padding:16px;overflow-y:auto;font-size:14px}
-    .row{display:flex;margin-bottom:8px}
-    .row.user{justify-content:flex-end}
-    .bubble{
-      max-width:80%;
-      padding:8px 10px;
-      border-radius:14px;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-    .bubble.user{
-      background:#38bdf8;
-      color:#0f172a;
-      border-radius:16px 4px 16px 16px;
-    }
-    .bubble.bot{
-      background:#020617;
-      color:#e5e7eb;
-      border:1px solid #1f2937;
-      border-radius:4px 16px 16px 16px;
-    }
-    .footer{border-top:1px solid #1f2937;padding:10px}
-    .input-box{
-      display:flex;
-      gap:8px;
-      padding:6px 8px;
-      border-radius:999px;
-      border:1px solid #1f2937;
-      background:#020617;
-    }
-    textarea{
-      flex:1;
-      resize:none;
-      border:none;
-      outline:none;
-      background:transparent;
-      color:#f9fafb;
-      font-size:13px;
-      font-family:inherit;
-    }
-    textarea::placeholder{color:#6b7280}
-    button{
-      border:none;
-      border-radius:999px;
-      padding:6px 12px;
-      font-size:12px;
-      font-weight:600;
-      background:linear-gradient(135deg,#38bdf8,#22c55e);
-      color:#0b1120;
-      cursor:pointer;
-    }
-    button:disabled{opacity:.6;cursor:default}
-  </style>
-</head>
-<body>
-  <div class="app">
-    <main class="main">
-      <div style="padding:12px 16px;border-bottom:1px solid #1f2937">
-        <div style="font-size:14px;font-weight:600">오늘의집 큐레이터 챗봇</div>
-        <div style="font-size:11px;color:#9ca3af;margin-top:2px">
-          큐레이터 활동 · 리워드 · 정산 관련 문의를 도와드려요.
-        </div>
-      </div>
-      <div id="chatBody" class="chat-body"></div>
-      <div class="footer">
-        <div class="input-box">
-          <textarea id="chatInput" rows="1"
-            placeholder="질문을 입력하고 Enter를 눌러보세요. (Shift+Enter 줄바꿈)"></textarea>
-          <button id="sendBtn"><span id="sendLabel">전송</span></button>
-        </div>
-      </div>
-    </main>
-  </div>
+<script>
+  function linkify(text) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.replace(urlRegex, (url) => {
+      return `<a href="${url}" target="_blank" rel="noopener" style="color:#38bdf8; text-decoration:underline;">${url}</a>`;
+    });
+  }
 
-  <script>
-    /* ============================
-       1) URL 자동 하이퍼링크 변환
-       ============================ */
-    function linkify(text) {
-      const urlRegex = /(https?:\/\/[^\s]+)/g;
-      return text.replace(urlRegex, (url) => {
-        return `<a href="${url}" target="_blank" style="color:#38bdf8; text-decoration:underline;">${url}</a>`;
-      });
+  const WEBHOOK_URL = "https://n8n.co-workerhou.se/webhook/public-chatbot";
+  const chatBody = document.getElementById("chatBody");
+  const chatInput = document.getElementById("chatInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const sendLabel = document.getElementById("sendLabel");
+
+  // ✅ 모바일/리로드에도 세션 유지(선택)
+  const sessionId = (() => {
+    const key = "curator_chat_session_id";
+    const prev = localStorage.getItem(key);
+    if (prev) return prev;
+    const v = "sess_" + Math.random().toString(36).slice(2);
+    localStorage.setItem(key, v);
+    return v;
+  })();
+
+  function addMessage(text, role) {
+    const row = document.createElement("div");
+    row.className = "row " + role;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + role;
+    bubble.innerHTML = linkify(text);
+
+    row.appendChild(bubble);
+    chatBody.appendChild(row);
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    return bubble; // ✅ 나중에 같은 말풍선 업데이트하려고 반환
+  }
+
+  function setLoading(b) {
+    sendBtn.disabled = b;
+    sendLabel.textContent = b ? "답변 생성 중..." : "전송";
+  }
+
+  // ✅ 지수 백오프 (0.8s, 1.6s, 3.2s...)
+  function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  // ✅ 안전한 fetch: 긴 타임아웃 + text로 받고 JSON 파싱
+  async function fetchWithTimeout(url, opts, timeoutMs) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...opts, signal: controller.signal, cache: "no-store" });
+      const raw = await res.text(); // json 고정 X (HTML/에러도 확인 가능)
+      return { res, raw };
+    } finally {
+      clearTimeout(id);
     }
+  }
 
-    const WEBHOOK_URL = "https://external.co-workerhou.se/n8n/webhook/public-chatbot";
-    const chatBody = document.getElementById("chatBody");
-    const chatInput = document.getElementById("chatInput");
-    const sendBtn = document.getElementById("sendBtn");
-    const sendLabel = document.getElementById("sendLabel");
-    const sessionId = "sess_" + Math.random().toString(36).slice(2);
+  /**
+   * ✅ 핵심: "끊겨도 다시 받기"를 프론트에서 최대한 흉내
+   * - requestId를 만들어서 같은 요청을 재시도할 때 동일 id로 보냄
+   * - 네트워크/타임아웃이면 자동 재시도 (최대 N회)
+   * - 기다리는 동안 말풍선에 상태를 갱신
+   */
+  async function sendMessage(text) {
+    const q = (text || "").trim();
+    if (!q) return;
 
-    /* ============================
-       2) 메시지 출력 함수 (링크 변환 적용됨)
-       ============================ */
-    function addMessage(text, role) {
-      const row = document.createElement("div");
-      row.className = "row " + role;
+    addMessage(q, "user");
+    chatInput.value = "";
 
-      const bubble = document.createElement("div");
-      bubble.className = "bubble " + role;
+    setLoading(true);
 
-      bubble.innerHTML = linkify(text);
+    // ✅ 같은 질문 재시도 시 중복 방지용 id
+    const requestId = "req_" + Date.now() + "_" + Math.random().toString(36).slice(2);
 
-      row.appendChild(bubble);
-      chatBody.appendChild(row);
-      chatBody.scrollTop = chatBody.scrollHeight;
-    }
+    // ✅ 봇 말풍선 먼저 만들고 진행상태를 여기서 갱신
+    const botBubble = addMessage("답변 생성 중… (최대 30초)\n연결이 끊겨도 자동으로 다시 시도할게요.", "bot");
 
-    function setLoading(b) {
-      sendBtn.disabled = b;
-      sendLabel.textContent = b ? "답변 생성 중..." : "전송";
-    }
+    const payload = { message: q, sessionId, requestId };
 
-    /* ============================
-       3) 서버로 메시지 전송
-       ============================ */
-    async function sendMessage(text) {
-      if (!text.trim()) return;
-      addMessage(text.trim(), "user");
-      setLoading(true);
+    const MAX_ATTEMPTS = 4;                 // 재시도 횟수 (원하면 늘려도 됨)
+    const TIMEOUT_MS = 35000;               // 모바일 대비 넉넉히 (35초)
+    let lastErr = null;
 
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        const res = await fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: text.trim(), sessionId })
-        });
+        botBubble.innerHTML = linkify(
+          `답변 생성 중… (${attempt}/${MAX_ATTEMPTS})\n` +
+          `네트워크가 불안정하면 자동 재연결합니다.`
+        );
 
-        if (!res.ok) throw new Error("HTTP " + res.status);
+        const { res, raw } = await fetchWithTimeout(
+          WEBHOOK_URL,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify(payload),
+            // credentials 필요 없으면 omit 유지
+            credentials: "omit",
+          },
+          TIMEOUT_MS
+        );
 
-        const data = await res.json();
-        const answer = (data && data.answer) ||
-          "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
+        if (!res.ok) {
+          // 서버가 에러를 주는 경우 raw에 힌트가 있음
+          throw new Error(`HTTP ${res.status} ${res.statusText}\n${raw.slice(0, 300)}`);
+        }
 
-        addMessage(answer, "bot");
-      } catch (e) {
-        addMessage("네트워크 오류가 발생했어요. 다시 시도해 주세요.", "bot");
-      } finally {
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          throw new Error(`NOT_JSON\n${raw.slice(0, 300)}`);
+        }
+
+        const answer = data?.answer || "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
+        botBubble.innerHTML = linkify(answer);
         setLoading(false);
+        return;
+
+      } catch (e) {
+        lastErr = e;
+
+        // AbortError(타임아웃) / 네트워크 에러일 때 재시도
+        const msg = String(e?.message || e);
+        const isTimeout = msg.includes("AbortError");
+        const isNetworky =
+          isTimeout ||
+          msg.includes("Failed to fetch") ||
+          msg.includes("NetworkError") ||
+          msg.includes("Load failed");
+
+        if (attempt === MAX_ATTEMPTS || !isNetworky) {
+          botBubble.innerHTML = linkify(
+            "연결이 불안정해서 답변을 가져오지 못했어요.\n" +
+            "모바일 데이터/와이파이를 바꿔서 다시 시도해 주세요.\n\n" +
+            "(디버그: " + (msg.slice(0, 120)) + "…)"
+          );
+          setLoading(false);
+          return;
+        }
+
+        // ✅ 백오프 후 재시도
+        const backoff = Math.min(800 * Math.pow(2, attempt - 1), 6000);
+        botBubble.innerHTML = linkify(
+          `연결이 잠시 끊겼어요. ${Math.ceil(backoff / 1000)}초 후 재연결할게요…\n` +
+          `(${attempt}/${MAX_ATTEMPTS})`
+        );
+        await sleep(backoff);
       }
     }
 
-    /* ============================
-       4) 초기 인사말
-       ============================ */
-    addMessage(
-      "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
-      "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
-      "(답변까지 약 10초 소요)",
-      "bot"
-    );
+    // 이론상 여기 도달 거의 없음
+    botBubble.innerHTML = linkify("예상치 못한 오류가 발생했어요. 다시 시도해 주세요.");
+    setLoading(false);
+  }
 
-    sendBtn.addEventListener("click", () => {
-      const text = chatInput.value;
-      chatInput.value = "";
-      sendMessage(text);
-    });
+  addMessage(
+    "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
+    "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
+    "(답변까지 약 10초~30초 소요될 수 있어요)",
+    "bot"
+  );
 
-    /* ============================
-       5) 한글 입력 중복 전송 방지
-       ============================ */
-    let isComposing = false;
+  sendBtn.addEventListener("click", () => {
+    sendMessage(chatInput.value);
+  });
 
-    chatInput.addEventListener("compositionstart", () => {
-      isComposing = true;
-    });
+  // 한글 조합 이슈 방지
+  let isComposing = false;
+  chatInput.addEventListener("compositionstart", () => (isComposing = true));
+  chatInput.addEventListener("compositionend", () => (isComposing = false));
 
-    chatInput.addEventListener("compositionend", () => {
-      isComposing = false;
-    });
+  chatInput.addEventListener("keydown", (e) => {
+    if (isComposing) return;
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(chatInput.value);
+    }
+  });
 
-    chatInput.addEventListener("keydown", (e) => {
-      if (isComposing) return; // 한글 조합 중이면 Enter 무시
-
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        const text = chatInput.value;
-        chatInput.value = "";
-        sendMessage(text);
-      }
-    });
-  </script>
-</body>
-</html>
+  // ✅ 모바일에서 백그라운드 갔다 오면 네트워크가 끊기는 경우가 많아서 UX 개선
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      // 필요하면 여기서 "연결 복구" 같은 안내를 넣을 수 있음
+    }
+  });
+</script>
