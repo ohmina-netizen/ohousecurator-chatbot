@@ -1,4 +1,5 @@
 <script>
+document.addEventListener("DOMContentLoaded", () => {
   function linkify(text) {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     return String(text || "").replace(urlRegex, (url) => {
@@ -13,7 +14,19 @@
   const sendBtn = document.getElementById("sendBtn");
   const sendLabel = document.getElementById("sendLabel");
 
-  // ✅ 기존처럼 단순 랜덤 세션 (localStorage 안 씀)
+  // ✅ 방어: 혹시라도 id가 다르거나 DOM이 없으면 친절히 표시
+  if (!chatBody || !chatInput || !sendBtn || !sendLabel) {
+    document.body.innerHTML =
+      '<pre style="padding:16px;white-space:pre-wrap;font-size:12px;">' +
+      'UI element not found.\n' +
+      'chatBody=' + !!chatBody + '\n' +
+      'chatInput=' + !!chatInput + '\n' +
+      'sendBtn=' + !!sendBtn + '\n' +
+      'sendLabel=' + !!sendLabel + '\n' +
+      '</pre>';
+    return;
+  }
+
   const sessionId = "sess_" + Math.random().toString(36).slice(2);
 
   function addMessage(text, role) {
@@ -27,7 +40,7 @@
     row.appendChild(bubble);
     chatBody.appendChild(row);
     chatBody.scrollTop = chatBody.scrollHeight;
-    return bubble; // 나중에 업데이트용
+    return bubble;
   }
 
   function setLoading(b) {
@@ -58,9 +71,8 @@
     addMessage(q, "user");
     setLoading(true);
 
-    // ✅ 재시도용 requestId (서버가 무시해도 됨)
     const requestId = "req_" + Date.now() + "_" + Math.random().toString(36).slice(2);
-    const payload = { message: q, sessionId: sessionId, requestId: requestId };
+    const payload = { message: q, sessionId, requestId };
 
     const botBubble = addMessage("답변 생성 중… (최대 30초)\n연결이 끊기면 자동 재시도합니다.", "bot");
 
@@ -71,7 +83,7 @@
       try {
         botBubble.innerHTML = linkify("답변 생성 중… (" + attempt + "/" + MAX_ATTEMPTS + ")");
 
-        const result = await fetchWithTimeout(
+        const { res, raw } = await fetchWithTimeout(
           WEBHOOK_URL,
           {
             method: "POST",
@@ -82,27 +94,23 @@
           TIMEOUT_MS
         );
 
-        const res = result.res;
-        const raw = result.raw;
-
         if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText + "\n" + raw.slice(0, 200));
 
         let data;
         try { data = JSON.parse(raw); }
-        catch (e) { throw new Error("NOT_JSON\n" + raw.slice(0, 200)); }
+        catch { throw new Error("NOT_JSON\n" + raw.slice(0, 200)); }
 
-        const answer = (data && data.answer) ? data.answer : "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
-        botBubble.innerHTML = linkify(answer);
+        botBubble.innerHTML = linkify(data?.answer || "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
         setLoading(false);
         return;
 
       } catch (e) {
-        const msg = String(e && e.message ? e.message : e);
+        const msg = String(e?.message || e);
         const networky =
-          msg.indexOf("AbortError") >= 0 ||
-          msg.indexOf("Failed to fetch") >= 0 ||
-          msg.indexOf("NetworkError") >= 0 ||
-          msg.indexOf("Load failed") >= 0;
+          msg.includes("AbortError") ||
+          msg.includes("Failed to fetch") ||
+          msg.includes("NetworkError") ||
+          msg.includes("Load failed");
 
         if (attempt === MAX_ATTEMPTS || !networky) {
           botBubble.innerHTML = linkify("네트워크 오류가 발생했어요. 다시 시도해 주세요.\n(디버그: " + msg.slice(0, 120) + "…)");
@@ -119,7 +127,7 @@
     setLoading(false);
   }
 
-  // ✅ 초기 인사말(네 기존 그대로)
+  // 초기 인사말
   addMessage(
     "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
     "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
@@ -146,4 +154,5 @@
       sendMessage(text);
     }
   });
+});
 </script>
