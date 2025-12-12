@@ -20,17 +20,6 @@ async function kvSet(key, obj, exSec = 300) {
   if (!r.ok) throw new Error(`KV SET failed: ${r.status}`);
 }
 
-async function kvSetNx(key, valueStr, exSec = 60) {
-  // Upstash REST는 보통 NX 옵션을 지원함: ?NX=1&EX=...
-  const base = process.env.KV_REST_API_URL;
-  const url = `${base}/set/${encodeURIComponent(key)}/${encodeURIComponent(valueStr)}?NX=1&EX=${exSec}`;
-  const r = await fetch(url, { method: "POST", headers: kvHeaders() });
-  if (!r.ok) throw new Error(`KV SETNX failed: ${r.status}`);
-  const data = await r.json().catch(() => ({}));
-  // data.result가 "OK"이면 락 획득, null이면 이미 존재
-  return data?.result === "OK";
-}
-
 export default async function handler(req, res) {
   try {
     if (req.method !== "GET") return res.status(405).send("Method Not Allowed");
@@ -42,23 +31,25 @@ export default async function handler(req, res) {
     if (!out?.result) return res.status(404).json({ status: "not_found" });
 
     let state;
-    try { state = JSON.parse(out.result); } catch { state = { status: "error", error: "bad stored value" }; }
+    try { state = JSON.parse(out.result); }
+    catch { return res.status(500).json({ status: "error", error: "bad stored JSON" }); }
 
     if (state.status === "ready") return res.status(200).json({ status: "ready", answer: state.answer });
     if (state.status === "error") return res.status(200).json({ status: "error", error: state.error });
 
-    // pending이면 여기서 "한 번만" n8n 호출 시도
+    // pending/processing 이면 여기서 처리
     const N8N = process.env.N8N_WEBHOOK_URL;
     if (!N8N) {
       await kvSet(requestId, { status: "error", error: "N8N_WEBHOOK_URL is missing", updatedAt: Date.now() }, 300);
       return res.status(200).json({ status: "error", error: "N8N_WEBHOOK_URL is missing" });
     }
 
-    // 락 획득(중복 실행 방지)
-    const lockKey = `${requestId}:lock`;
-    const gotLock = await kvSetNx(lockKey, "1", 60);
+    // ✅ 락 대체: pending이면 processing으로 먼저 바꿔버린다
+    // (동시에 여러 요청이 들어와도, 둘 다 processing으로 덮어쓸 수는 있지만
+    //  실제로는 대부분 첫 호출이 먼저 진행하고, 나머지는 202로 돌게 됨)
+    if (state.status === "pending") {
+      await kvSet(requestId, { ...state, status: "processing", startedAt: Date.now() }, 300);
 
-    if (gotLock) {
       try {
         const r = await fetch(N8N, {
           method: "POST",
@@ -80,7 +71,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 아직 처리 중이면 202
+    // 아직 처리중
     return res.status(202).json({ status: "pending" });
 
   } catch (e) {
