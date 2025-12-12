@@ -1,4 +1,89 @@
-@@ -87,132 +87,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>오늘의집 큐레이터 챗봇</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",system-ui,sans-serif;
+      background:#0f172a;
+      color:#f9fafb;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      min-height:100vh;
+    }
+    .app{
+      width:100%;
+      max-width:960px;
+      background:#020617;
+      border-radius:20px;
+      box-shadow:0 20px 40px rgba(0,0,0,0.5);
+      display:flex;
+      overflow:hidden;
+      border:1px solid #1f2937;
+    }
+    .main{flex:1;display:flex;flex-direction:column}
+    .chat-body{flex:1;padding:16px;overflow-y:auto;font-size:14px}
+    .row{display:flex;margin-bottom:8px}
+    .row.user{justify-content:flex-end}
+    .bubble{
+      max-width:80%;
+      padding:8px 10px;
+      border-radius:14px;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .bubble.user{
+      background:#38bdf8;
+      color:#0f172a;
+      border-radius:16px 4px 16px 16px;
+    }
+    .bubble.bot{
+      background:#020617;
+      color:#e5e7eb;
+      border:1px solid #1f2937;
+      border-radius:4px 16px 16px 16px;
+    }
+    .footer{border-top:1px solid #1f2937;padding:10px}
+    .input-box{
+      display:flex;
+      gap:8px;
+      padding:6px 8px;
+      border-radius:999px;
+      border:1px solid #1f2937;
+      background:#020617;
+    }
+    textarea{
+      flex:1;
+      resize:none;
+      border:none;
+      outline:none;
+      background:transparent;
+      color:#f9fafb;
+      font-size:13px;
+      font-family:inherit;
+    }
+    textarea::placeholder{color:#6b7280}
+    button{
+      border:none;
+      border-radius:999px;
+      padding:6px 12px;
+      font-size:12px;
+      font-weight:600;
+      background:linear-gradient(135deg,#38bdf8,#22c55e);
+      color:#0b1120;
+      cursor:pointer;
+    }
+    button:disabled{opacity:.6;cursor:default}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main class="main">
       <div style="padding:12px 16px;border-bottom:1px solid #1f2937">
         <div style="font-size:14px;font-weight:600">오늘의집 큐레이터 챗봇</div>
         <div style="font-size:11px;color:#9ca3af;margin-top:2px">
@@ -17,6 +102,9 @@
   </div>
 
   <script>
+    /* ============================
+       1) URL 자동 하이퍼링크 변환
+       ============================ */
     function linkify(text) {
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       return text.replace(urlRegex, (url) => {
@@ -24,17 +112,16 @@
       });
     }
 
-    // 🔹 동일 도메인의 서버리스 프록시로 호출 (모바일 TLS/네트워크 이슈 완화)
-    const WEBHOOK_URL = "/api/chat";
-    const WEBHOOK_FALLBACK_URL =
-      "https://external.co-workerhou.se/n8n/webhook/public-chatbot";
-
+    const WEBHOOK_URL = "https://external.co-workerhou.se/n8n/webhook/public-chatbot";
     const chatBody = document.getElementById("chatBody");
     const chatInput = document.getElementById("chatInput");
     const sendBtn = document.getElementById("sendBtn");
     const sendLabel = document.getElementById("sendLabel");
     const sessionId = "sess_" + Math.random().toString(36).slice(2);
 
+    /* ============================
+       2) 메시지 출력 함수 (링크 변환 적용됨)
+       ============================ */
     function addMessage(text, role) {
       const row = document.createElement("div");
       row.className = "row " + role;
@@ -54,126 +141,42 @@
       sendLabel.textContent = b ? "답변 생성 중..." : "전송";
     }
 
+    /* ============================
+       3) 서버로 메시지 전송
+       ============================ */
     async function sendMessage(text) {
-      const trimmed = text.trim();
-      if (!trimmed) return;
-
-      addMessage(trimmed, "user");
+      if (!text.trim()) return;
+      addMessage(text.trim(), "user");
       setLoading(true);
 
-      // 지연 또는 모바일 브라우저의 비정상 종료를 대비한 타임아웃
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(new Error("timeout")), 20000);
-
-      const params = new URLSearchParams();
-      params.set("message", trimmed);
-      params.set("sessionId", sessionId);
-
-      const requestOptions = {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          "X-Requested-With": "fetch",
-          Accept: "application/json, text/plain, */*",
-        },
-        cache: "no-store",
-        credentials: "omit",
-        mode: "cors",
-        redirect: "follow",
-        signal: controller.signal,
-        keepalive: true,
-        body: params.toString(),
-      };
-
-      async function fire(url) {
-        const res = await fetch(url, requestOptions);
-        const status = res.status;
-        const bodyText = await res.text();
-
-        let data = null;
-        try {
-          data = JSON.parse(bodyText);
-        } catch (e) {}
-
-        return { status, bodyText, data, ok: res.ok };
-      }
-
       try {
-        let attempt = await fire(WEBHOOK_URL);
+        const res = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text.trim(), sessionId })
+        });
 
-        if (!attempt.ok && attempt.status === 404) {
-          // edge case: 배포 환경에서 프록시 경로를 찾지 못할 때 직접 웹훅으로 재시도
-          attempt = await fire(WEBHOOK_FALLBACK_URL);
-        }
+        if (!res.ok) throw new Error("HTTP " + res.status);
 
-        if (!attempt.ok) {
-          const upstreamMessage =
-            (attempt.data &&
-              (attempt.data.error || attempt.data.message || attempt.data.raw)) ||
-            attempt.bodyText;
-          addMessage(
-            "⚠️ 서버 응답 오류가 발생했어요.\n" +
-              "- status: " + attempt.status + "\n" +
-              "- body: " + upstreamMessage,
-            "bot"
-          );
-          return;
-        }
-
-        const answer =
-          (attempt.data &&
-            (attempt.data.answer ||
-              attempt.data.output ||
-              attempt.data.message ||
-              attempt.data.raw)) ||
+        const data = await res.json();
+        const answer = (data && data.answer) ||
           "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
         addMessage(answer, "bot");
       } catch (e) {
-        const isTimeout = e && e.message === "timeout";
-        const offlineHint =
-          typeof navigator !== "undefined" && navigator.onLine === false
-            ? "(인터넷 연결이 끊어진 것 같아요.)"
-            : "";
-
-        const hasNavigator = typeof navigator !== "undefined";
-        if (!isTimeout && (!hasNavigator || navigator.onLine !== false)) {
-          try {
-            const attempt = await fire(WEBHOOK_FALLBACK_URL);
-            if (attempt.ok) {
-              const answer =
-                (attempt.data &&
-                  (attempt.data.answer ||
-                    attempt.data.output ||
-                    attempt.data.message ||
-                    attempt.data.raw)) ||
-                "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
-              addMessage(answer, "bot");
-              return;
-            }
-          } catch (_) {}
-        }
-
-        addMessage(
-          (isTimeout
-            ? "⚠️ 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요."
-            : "⚠️ 네트워크/브라우저 오류가 발생했어요.") +
-            (offlineHint ? " " + offlineHint : "") +
-            "\n- name: " + (e.name || "n/a") +
-            "\n- message: " + (e.message || "n/a"),
-          "bot"
-        );
-        console.error(e);
+        addMessage("네트워크 오류가 발생했어요. 다시 시도해 주세요.", "bot");
       } finally {
-        clearTimeout(timeoutId);
         setLoading(false);
       }
     }
 
+    /* ============================
+       4) 초기 인사말
+       ============================ */
     addMessage(
       "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
-        "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
-        "(답변까지 약 10초 소요)",
+      "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
+      "(답변까지 약 10초 소요)",
       "bot"
     );
 
@@ -183,11 +186,29 @@
       sendMessage(text);
     });
 
+    /* ============================
+       5) 한글 입력 중복 전송 방지
+       ============================ */
     let isComposing = false;
-    chatInput.addEventListener("compositionstart", () => { isComposing = true; });
-    chatInput.addEventListener("compositionend", () => { isComposing = false; });
+
+    chatInput.addEventListener("compositionstart", () => {
+      isComposing = true;
+    });
+
+    chatInput.addEventListener("compositionend", () => {
+      isComposing = false;
+    });
+
     chatInput.addEventListener("keydown", (e) => {
-      if (isComposing) return;
+      if (isComposing) return; // 한글 조합 중이면 Enter 무시
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         const text = chatInput.value;
+        chatInput.value = "";
+        sendMessage(text);
+      }
+    });
+  </script>
+</body>
+</html>
