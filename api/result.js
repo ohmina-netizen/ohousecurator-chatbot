@@ -51,19 +51,26 @@ export default async function handler(req, res) {
       await kvSet(requestId, { ...state, status: "processing", startedAt: Date.now() }, 300);
 
       try {
-        const r = await fetch(N8N, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: state.message, sessionId: state.sessionId, requestId }),
-        });
+            const r = await fetch(N8N, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: state.message, sessionId: state.sessionId, requestId }),
+            });
+            
+            const txt = await r.text();
+            
+            // ✅ 여기 추가: HTTP 실패면 에러로 처리해서 KV에 남기기
+            if (!r.ok) {
+              throw new Error(`N8N HTTP ${r.status}: ${txt.slice(0, 300)}`);
+            }
+            
+            let data = {};
+            try { data = JSON.parse(txt); } catch {}
+            
+            const answer =
+              data.answer ?? data.output ?? data.text ??
+              "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
-        const txt = await r.text();
-        let data = {};
-        try { data = JSON.parse(txt); } catch {}
-
-        const answer =
-          data.answer ?? data.output ?? data.text ??
-          "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
         await kvSet(requestId, { status: "ready", answer, updatedAt: Date.now() }, 300);
       } catch (e) {
