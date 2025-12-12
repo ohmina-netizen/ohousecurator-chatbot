@@ -1,8 +1,9 @@
 <script>
   function linkify(text) {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.replace(urlRegex, (url) => {
-      return `<a href="${url}" target="_blank" rel="noopener" style="color:#38bdf8; text-decoration:underline;">${url}</a>`;
+    return String(text || "").replace(urlRegex, (url) => {
+      return '<a href="' + url + '" target="_blank" rel="noopener" ' +
+        'style="color:#38bdf8; text-decoration:underline;">' + url + '</a>';
     });
   }
 
@@ -12,15 +13,8 @@
   const sendBtn = document.getElementById("sendBtn");
   const sendLabel = document.getElementById("sendLabel");
 
-  // ✅ 모바일/리로드에도 세션 유지(선택)
-  const sessionId = (() => {
-    const key = "curator_chat_session_id";
-    const prev = localStorage.getItem(key);
-    if (prev) return prev;
-    const v = "sess_" + Math.random().toString(36).slice(2);
-    localStorage.setItem(key, v);
-    return v;
-  })();
+  // ✅ 기존처럼 단순 랜덤 세션 (localStorage 안 씀)
+  const sessionId = "sess_" + Math.random().toString(36).slice(2);
 
   function addMessage(text, role) {
     const row = document.createElement("div");
@@ -33,8 +27,7 @@
     row.appendChild(bubble);
     chatBody.appendChild(row);
     chatBody.scrollTop = chatBody.scrollHeight;
-
-    return bubble; // ✅ 나중에 같은 말풍선 업데이트하려고 반환
+    return bubble; // 나중에 업데이트용
   }
 
   function setLoading(b) {
@@ -42,139 +35,104 @@
     sendLabel.textContent = b ? "답변 생성 중..." : "전송";
   }
 
-  // ✅ 지수 백오프 (0.8s, 1.6s, 3.2s...)
   function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
   }
 
-  // ✅ 안전한 fetch: 긴 타임아웃 + text로 받고 JSON 파싱
-  async function fetchWithTimeout(url, opts, timeoutMs) {
+  async function fetchWithTimeout(url, options, timeoutMs) {
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { ...opts, signal: controller.signal, cache: "no-store" });
-      const raw = await res.text(); // json 고정 X (HTML/에러도 확인 가능)
+      const res = await fetch(url, Object.assign({}, options, { signal: controller.signal, cache: "no-store" }));
+      const raw = await res.text();
       return { res, raw };
     } finally {
-      clearTimeout(id);
+      clearTimeout(timer);
     }
   }
 
-  /**
-   * ✅ 핵심: "끊겨도 다시 받기"를 프론트에서 최대한 흉내
-   * - requestId를 만들어서 같은 요청을 재시도할 때 동일 id로 보냄
-   * - 네트워크/타임아웃이면 자동 재시도 (최대 N회)
-   * - 기다리는 동안 말풍선에 상태를 갱신
-   */
   async function sendMessage(text) {
     const q = (text || "").trim();
     if (!q) return;
 
     addMessage(q, "user");
-    chatInput.value = "";
-
     setLoading(true);
 
-    // ✅ 같은 질문 재시도 시 중복 방지용 id
+    // ✅ 재시도용 requestId (서버가 무시해도 됨)
     const requestId = "req_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    const payload = { message: q, sessionId: sessionId, requestId: requestId };
 
-    // ✅ 봇 말풍선 먼저 만들고 진행상태를 여기서 갱신
-    const botBubble = addMessage("답변 생성 중… (최대 30초)\n연결이 끊겨도 자동으로 다시 시도할게요.", "bot");
+    const botBubble = addMessage("답변 생성 중… (최대 30초)\n연결이 끊기면 자동 재시도합니다.", "bot");
 
-    const payload = { message: q, sessionId, requestId };
-
-    const MAX_ATTEMPTS = 4;                 // 재시도 횟수 (원하면 늘려도 됨)
-    const TIMEOUT_MS = 35000;               // 모바일 대비 넉넉히 (35초)
-    let lastErr = null;
+    const MAX_ATTEMPTS = 4;
+    const TIMEOUT_MS = 35000;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
-        botBubble.innerHTML = linkify(
-          `답변 생성 중… (${attempt}/${MAX_ATTEMPTS})\n` +
-          `네트워크가 불안정하면 자동 재연결합니다.`
-        );
+        botBubble.innerHTML = linkify("답변 생성 중… (" + attempt + "/" + MAX_ATTEMPTS + ")");
 
-        const { res, raw } = await fetchWithTimeout(
+        const result = await fetchWithTimeout(
           WEBHOOK_URL,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "application/json",
-            },
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
             body: JSON.stringify(payload),
-            // credentials 필요 없으면 omit 유지
             credentials: "omit",
           },
           TIMEOUT_MS
         );
 
-        if (!res.ok) {
-          // 서버가 에러를 주는 경우 raw에 힌트가 있음
-          throw new Error(`HTTP ${res.status} ${res.statusText}\n${raw.slice(0, 300)}`);
-        }
+        const res = result.res;
+        const raw = result.raw;
+
+        if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText + "\n" + raw.slice(0, 200));
 
         let data;
-        try {
-          data = JSON.parse(raw);
-        } catch {
-          throw new Error(`NOT_JSON\n${raw.slice(0, 300)}`);
-        }
+        try { data = JSON.parse(raw); }
+        catch (e) { throw new Error("NOT_JSON\n" + raw.slice(0, 200)); }
 
-        const answer = data?.answer || "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
+        const answer = (data && data.answer) ? data.answer : "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
         botBubble.innerHTML = linkify(answer);
         setLoading(false);
         return;
 
       } catch (e) {
-        lastErr = e;
+        const msg = String(e && e.message ? e.message : e);
+        const networky =
+          msg.indexOf("AbortError") >= 0 ||
+          msg.indexOf("Failed to fetch") >= 0 ||
+          msg.indexOf("NetworkError") >= 0 ||
+          msg.indexOf("Load failed") >= 0;
 
-        // AbortError(타임아웃) / 네트워크 에러일 때 재시도
-        const msg = String(e?.message || e);
-        const isTimeout = msg.includes("AbortError");
-        const isNetworky =
-          isTimeout ||
-          msg.includes("Failed to fetch") ||
-          msg.includes("NetworkError") ||
-          msg.includes("Load failed");
-
-        if (attempt === MAX_ATTEMPTS || !isNetworky) {
-          botBubble.innerHTML = linkify(
-            "연결이 불안정해서 답변을 가져오지 못했어요.\n" +
-            "모바일 데이터/와이파이를 바꿔서 다시 시도해 주세요.\n\n" +
-            "(디버그: " + (msg.slice(0, 120)) + "…)"
-          );
+        if (attempt === MAX_ATTEMPTS || !networky) {
+          botBubble.innerHTML = linkify("네트워크 오류가 발생했어요. 다시 시도해 주세요.\n(디버그: " + msg.slice(0, 120) + "…)");
           setLoading(false);
           return;
         }
 
-        // ✅ 백오프 후 재시도
         const backoff = Math.min(800 * Math.pow(2, attempt - 1), 6000);
-        botBubble.innerHTML = linkify(
-          `연결이 잠시 끊겼어요. ${Math.ceil(backoff / 1000)}초 후 재연결할게요…\n` +
-          `(${attempt}/${MAX_ATTEMPTS})`
-        );
+        botBubble.innerHTML = linkify("연결이 잠시 끊겼어요. " + Math.ceil(backoff / 1000) + "초 후 재시도합니다…");
         await sleep(backoff);
       }
     }
 
-    // 이론상 여기 도달 거의 없음
-    botBubble.innerHTML = linkify("예상치 못한 오류가 발생했어요. 다시 시도해 주세요.");
     setLoading(false);
   }
 
+  // ✅ 초기 인사말(네 기존 그대로)
   addMessage(
     "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
     "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
-    "(답변까지 약 10초~30초 소요될 수 있어요)",
+    "(답변까지 약 10초 소요)",
     "bot"
   );
 
   sendBtn.addEventListener("click", () => {
-    sendMessage(chatInput.value);
+    const text = chatInput.value;
+    chatInput.value = "";
+    sendMessage(text);
   });
 
-  // 한글 조합 이슈 방지
   let isComposing = false;
   chatInput.addEventListener("compositionstart", () => (isComposing = true));
   chatInput.addEventListener("compositionend", () => (isComposing = false));
@@ -183,14 +141,9 @@
     if (isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage(chatInput.value);
-    }
-  });
-
-  // ✅ 모바일에서 백그라운드 갔다 오면 네트워크가 끊기는 경우가 많아서 UX 개선
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      // 필요하면 여기서 "연결 복구" 같은 안내를 넣을 수 있음
+      const text = chatInput.value;
+      chatInput.value = "";
+      sendMessage(text);
     }
   });
 </script>
