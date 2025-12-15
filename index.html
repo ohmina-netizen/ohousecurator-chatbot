@@ -102,173 +102,138 @@
   </div>
 
   <script>
-    window.addEventListener("DOMContentLoaded", () => {
-      /* ============================
-         1) 유틸 함수들
-         ============================ */
+    /* ============================
+       1) URL 자동 하이퍼링크 변환
+       ============================ */
+    function linkify(text) {
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      return text.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" style="color:#38bdf8; text-decoration:underline;">${url}</a>`;
+      });
+    }
 
-      function linkify(text) {
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        return text.replace(urlRegex, (url) => {
-          return `<a href="${url}" target="_blank" style="color:#38bdf8; text-decoration:underline;">${url}</a>`;
+    const WEBHOOK_URL = "https://n8n.co-workerhou.se/webhook/public-chatbot";
+    const chatBody = document.getElementById("chatBody");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const sendLabel = document.getElementById("sendLabel");
+    const sessionId = "sess_" + Math.random().toString(36).slice(2);
+
+    /* ============================
+       2) 메시지 출력 함수 (링크 변환 적용됨)
+       ============================ */
+    function addMessage(text, role) {
+      const row = document.createElement("div");
+      row.className = "row " + role;
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + role;
+
+      bubble.innerHTML = linkify(text);
+
+      row.appendChild(bubble);
+      chatBody.appendChild(row);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function setLoading(b) {
+      sendBtn.disabled = b;
+      sendLabel.textContent = b ? "답변 생성 중..." : "전송";
+    }
+
+    /* ============================
+       3) 서버로 메시지 전송 (수정됨)
+       ============================ */
+    async function sendMessage(text) {
+      if (!text.trim()) return;
+      addMessage(text.trim(), "user");
+      setLoading(true);
+
+      try {
+        // 모바일 타임아웃 방지 및 디버깅을 위한 옵션 추가
+        const res = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json" 
+          },
+          // 캐시 방지 및 연결 유지 시도
+          cache: "no-store", 
+          // keepalive는 페이지 이동시에도 요청 유지(선택사항이나 모바일에 도움될 수 있음)
+          // 단, 페이로드 크기 제한이 있으니 긴 텍스트 전송시 주의 필요. 에러나면 false로 변경.
+          keepalive: false, 
+          body: JSON.stringify({ message: text.trim(), sessionId })
         });
-      }
 
-      function sleep(ms) {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-      }
-
-      const chatBody   = document.getElementById("chatBody");
-      const chatInput  = document.getElementById("chatInput");
-      const sendBtn    = document.getElementById("sendBtn");
-      const sendLabel  = document.getElementById("sendLabel");
-      const sessionId  = "sess_" + Math.random().toString(36).slice(2);
-
-      if (!chatBody || !chatInput || !sendBtn || !sendLabel) {
-        console.error("UI element not found.", {
-          chatBody: !!chatBody,
-          chatInput: !!chatInput,
-          sendBtn: !!sendBtn,
-          sendLabel: !!sendLabel,
-        });
-        return;
-      }
-
-      /* ============================
-         2) 메시지 출력
-         ============================ */
-      function addMessage(text, role) {
-        const row = document.createElement("div");
-        row.className = "row " + role;
-
-        const bubble = document.createElement("div");
-        bubble.className = "bubble " + role;
-        bubble.innerHTML = linkify(text);
-
-        row.appendChild(bubble);
-        chatBody.appendChild(row);
-        chatBody.scrollTop = chatBody.scrollHeight;
-      }
-
-      function setLoading(isLoading) {
-        sendBtn.disabled = isLoading;
-        sendLabel.textContent = isLoading ? "답변 생성 중..." : "전송";
-      }
-
-      /* ============================
-         3) /api/result 폴링
-         ============================ */
-      async function pollResult(requestId, timeoutMs = 60000) {
-        const started = Date.now();
-
-        while (Date.now() - started < timeoutMs) {
-          const res = await fetch(
-            `/api/result?requestId=${encodeURIComponent(requestId)}`,
-            { method: "GET" }
-          );
-
-          if (res.status === 202) {
-            // 아직 pending
-            await sleep(800);
-            continue;
-          }
-
-          if (!res.ok) {
-            throw new Error(`RESULT failed: ${res.status}`);
-          }
-
-          const data = await res.json();
-          if (data && data.answer) {
-            return data.answer;
-          }
-
-          await sleep(800);
+        if (!res.ok) {
+           // 서버 에러(500 등) 발생 시
+           throw new Error(`서버 오류 (${res.status})`);
         }
 
-        return "답변이 지연되고 있어요. 잠시 후 다시 시도해 주세요.";
-      }
+        const data = await res.json();
+        const answer = (data && data.answer) ||
+          "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
-      /* ============================
-         4) /api/ask 호출 + 결과 폴링
-         ============================ */
-      async function sendMessage(text) {
-        const trimmed = text.trim();
-        if (!trimmed) return;
+        addMessage(answer, "bot");
 
-        addMessage(trimmed, "user");
-        setLoading(true);
-
-        try {
-          // 1) 질문 등록 & requestId 받기
-          const askRes = await fetch("/api/ask", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: trimmed, sessionId }),
-          });
-
-          if (!askRes.ok) {
-            throw new Error("ASK failed: " + askRes.status);
-          }
-
-          const askData = await askRes.json();
-          const requestId = askData.requestId;
-          if (!requestId) {
-            throw new Error("ASK missing requestId");
-          }
-
-          // 2) 결과 폴링
-          const answer = await pollResult(requestId, 60000);
-          addMessage(answer, "bot");
-        } catch (e) {
-          addMessage(
-            "네트워크 오류가 발생했어요. 다시 시도해 주세요.\n" +
-            "(디버그: " + (e?.message || e) + ")",
-            "bot"
-          );
-          console.error(e);
-        } finally {
-          setLoading(false);
+      } catch (e) {
+        console.error(e);
+        // 에러 메시지를 화면에 구체적으로 표시 (디버깅용)
+        let errorMsg = "네트워크 오류가 발생했어요.";
+        
+        // 모바일에서 자주 발생하는 에러 유형 체크
+        if (e.message.includes("Failed to fetch")) {
+          errorMsg += "\n(인터넷 연결이 불안정하거나 응답 시간이 너무 길어 끊겼을 수 있습니다.)";
+        } else if (e.name === 'AbortError') {
+          errorMsg += "\n(응답 시간이 초과되었습니다.)";
+        } else {
+          errorMsg += `\n(사유: ${e.message})`;
         }
+
+        addMessage(errorMsg, "bot");
+      } finally {
+        setLoading(false);
       }
+    }
 
-      /* ============================
-         5) 초기 인사말
-         ============================ */
-      addMessage(
-        "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
-        "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
-        "(답변까지 약 10초 소요)",
-        "bot"
-      );
+    /* ============================
+       4) 초기 인사말
+       ============================ */
+    addMessage(
+      "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
+      "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
+      "(답변까지 약 10초 소요)",
+      "bot"
+    );
 
-      /* ============================
-         6) 이벤트 바인딩
-         ============================ */
-      sendBtn.addEventListener("click", () => {
+    sendBtn.addEventListener("click", () => {
+      const text = chatInput.value;
+      chatInput.value = "";
+      sendMessage(text);
+    });
+
+    /* ============================
+       5) 한글 입력 중복 전송 방지
+       ============================ */
+    let isComposing = false;
+
+    chatInput.addEventListener("compositionstart", () => {
+      isComposing = true;
+    });
+
+    chatInput.addEventListener("compositionend", () => {
+      isComposing = false;
+    });
+
+    chatInput.addEventListener("keydown", (e) => {
+      if (isComposing) return; // 한글 조합 중이면 Enter 무시
+
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
         const text = chatInput.value;
         chatInput.value = "";
         sendMessage(text);
-      });
-
-      // 한글 입력 중복 전송 방지
-      let isComposing = false;
-      chatInput.addEventListener("compositionstart", () => {
-        isComposing = true;
-      });
-      chatInput.addEventListener("compositionend", () => {
-        isComposing = false;
-      });
-
-      chatInput.addEventListener("keydown", (e) => {
-        if (isComposing) return;
-
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          const text = chatInput.value;
-          chatInput.value = "";
-          sendMessage(text);
-        }
-      });
+      }
     });
   </script>
 </body>
