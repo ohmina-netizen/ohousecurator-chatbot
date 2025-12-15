@@ -1,7 +1,5 @@
 {
-  "name": "ohouse-curator-chatbot",
+  "name": "ohousecurator-chatbot",
   "private": true,
-  "dependencies": {
-    "@vercel/kv": "^1.0.0"
-  }
+  "version": "1.0.0"
 }
