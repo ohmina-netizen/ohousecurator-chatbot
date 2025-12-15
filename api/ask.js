@@ -1,64 +1,69 @@
 // api/ask.js
 
-function kvHeaders() {
-  return { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` };
-}
-
 async function kvSet(key, obj, exSec = 300) {
   const base = process.env.KV_REST_API_URL;
   const value = encodeURIComponent(JSON.stringify(obj));
   const url = `${base}/set/${encodeURIComponent(key)}/${value}?EX=${exSec}`;
-  const r = await fetch(url, { method: "POST", headers: kvHeaders() });
+  const r = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+    },
+  });
   if (!r.ok) throw new Error(`KV SET failed: ${r.status}`);
 }
 
-// n8n Webhook을 백그라운드로 호출
-async function triggerN8n(payload) {
-  const webhook = process.env.N8N_WEBHOOK_URL;
-  if (!webhook) throw new Error("Missing N8N_WEBHOOK_URL");
+// 🔥 n8n 웹훅 트리거 (백그라운드)
+async function triggerN8n({ message, sessionId, requestId }) {
+  const url = process.env.N8N_WEBHOOK_URL;
+  if (!url) {
+    console.error("N8N_WEBHOOK_URL is not set");
+    return;
+  }
 
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 2500); // 2.5초 정도만 기다렸다 끊기
-
+  // n8n 쪽 Webhook 노드는 "Immediately" 로 응답하도록 설정해 둘 거라
+  // 이 호출은 1초 내로 끝나야 함.
   try {
-    await fetch(webhook, {
+    await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: ctrl.signal,
+      body: JSON.stringify({ message, sessionId, requestId }),
     });
-  } catch (e) {
-    // n8n 트리거 실패해도 /api/ask 자체는 200 주고,
-    // /api/result 폴링 쪽에서 타임아웃 메시지로 처리하게 놔둔다.
-  } finally {
-    clearTimeout(t);
+  } catch (err) {
+    console.error("Failed to call n8n webhook:", err);
   }
 }
 
 export default async function handler(req, res) {
   try {
-    if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+    if (req.method !== "POST") {
+      return res.status(405).send("Method Not Allowed");
+    }
 
     const body = typeof req.body === "object" ? req.body : {};
     const message = (body.message ?? "").toString().trim();
     const sessionId = (body.sessionId ?? `sess_${Math.random().toString(36).slice(2)}`).toString();
     const requestId = (body.requestId ?? `req_${Date.now()}_${Math.random().toString(36).slice(2)}`).toString();
 
-    if (!message) return res.status(400).json({ error: "missing message" });
+    if (!message) {
+      return res.status(400).json({ error: "missing message" });
+    }
 
-    // 1) KV에 pending 상태로 저장
-    await kvSet(
-      requestId,
-      { status: "pending", createdAt: Date.now(), sessionId, message },
-      300
-    );
+    // 1) Upstash에 pending 상태 저장
+    await kvSet(requestId, {
+      status: "pending",
+      createdAt: Date.now(),
+      sessionId,
+      message,
+    });
 
-    // 2) n8n Webhook 비동기 트리거
+    // 2) n8n 워크플로우 비동기 실행
     triggerN8n({ message, sessionId, requestId });
 
-    // 3) 클라이언트에는 requestId만 응답
+    // 3) 프론트에는 requestId만 바로 반환
     return res.status(200).json({ requestId });
   } catch (e) {
+    console.error("ASK error:", e);
     return res.status(500).json({ error: String(e?.message || e) });
   }
 }
