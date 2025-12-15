@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     // 3) n8n Webhook URL (환경변수 → 없으면 기본값)
     const n8nUrl =
       process.env.N8N_WEBHOOK_URL ||
-      "https://n8n.co-workerhou.se/webhook/public-chatbot";
+      "https://external.co-workerhou.se/n8n/webhook/public-chatbot";
 
     // 4) n8n으로 그대로 프록시
     const n8nResp = await fetch(n8nUrl, {
