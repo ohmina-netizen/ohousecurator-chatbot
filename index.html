@@ -4,234 +4,272 @@
   <meta charset="UTF-8" />
   <title>오늘의집 큐레이터 챗봇</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", system-ui, sans-serif;
-      background: #0f172a;
-      color: #f9fafb;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",system-ui,sans-serif;
+      background:#0f172a;
+      color:#f9fafb;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      min-height:100vh;
     }
-
-    .app {
-      width: 100%;
-      max-width: 420px;
-      height: 90vh;
-      background: #020617;
-      border-radius: 16px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      border: 1px solid #1f2937;
+    .app{
+      width:100%;
+      max-width:960px;
+      background:#020617;
+      border-radius:20px;
+      box-shadow:0 20px 40px rgba(0,0,0,0.5);
+      display:flex;
+      overflow:hidden;
+      border:1px solid #1f2937;
     }
-
-    header {
-      padding: 14px 16px;
-      border-bottom: 1px solid #1f2937;
+    .main{flex:1;display:flex;flex-direction:column}
+    .chat-body{flex:1;padding:16px;overflow-y:auto;font-size:14px}
+    .row{display:flex;margin-bottom:8px}
+    .row.user{justify-content:flex-end}
+    .bubble{
+      max-width:80%;
+      padding:8px 10px;
+      border-radius:14px;
+      white-space:pre-wrap;
+      word-break:break-word;
     }
-
-    header .title {
-      font-size: 14px;
-      font-weight: 600;
+    .bubble.user{
+      background:#38bdf8;
+      color:#0f172a;
+      border-radius:16px 4px 16px 16px;
     }
-
-    header .desc {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-top: 4px;
+    .bubble.bot{
+      background:#020617;
+      color:#e5e7eb;
+      border:1px solid #1f2937;
+      border-radius:4px 16px 16px 16px;
     }
-
-    .chat-body {
-      flex: 1;
-      padding: 12px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+    .footer{border-top:1px solid #1f2937;padding:10px}
+    .input-box{
+      display:flex;
+      gap:8px;
+      padding:6px 8px;
+      border-radius:999px;
+      border:1px solid #1f2937;
+      background:#020617;
     }
-
-    .msg {
-      max-width: 85%;
-      padding: 10px 12px;
-      border-radius: 12px;
-      font-size: 13px;
-      line-height: 1.4;
-      white-space: pre-wrap;
-      word-break: break-word;
+    textarea{
+      flex:1;
+      resize:none;
+      border:none;
+      outline:none;
+      background:transparent;
+      color:#f9fafb;
+      font-size:13px;
+      font-family:inherit;
     }
-
-    .msg.user {
-      align-self: flex-end;
-      background: #2563eb;
-      color: white;
-      border-bottom-right-radius: 4px;
+    textarea::placeholder{color:#6b7280}
+    button{
+      border:none;
+      border-radius:999px;
+      padding:6px 12px;
+      font-size:12px;
+      font-weight:600;
+      background:linear-gradient(135deg,#38bdf8,#22c55e);
+      color:#0b1120;
+      cursor:pointer;
     }
-
-    .msg.bot {
-      align-self: flex-start;
-      background: #111827;
-      border: 1px solid #1f2937;
-      border-bottom-left-radius: 4px;
-    }
-
-    .footer {
-      padding: 10px;
-      border-top: 1px solid #1f2937;
-    }
-
-    .input-box {
-      display: flex;
-      gap: 8px;
-    }
-
-    textarea {
-      flex: 1;
-      resize: none;
-      border-radius: 8px;
-      border: 1px solid #1f2937;
-      background: #020617;
-      color: #f9fafb;
-      padding: 10px;
-      font-size: 13px;
-      min-height: 38px;
-      max-height: 120px;
-      outline: none;
-    }
-
-    button {
-      background: #2563eb;
-      border: none;
-      border-radius: 8px;
-      color: white;
-      padding: 0 14px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    button:disabled{opacity:.6;cursor:default}
   </style>
 </head>
-
 <body>
   <div class="app">
-    <header>
-      <div class="title">오늘의집 큐레이터 챗봇</div>
-      <div class="desc">큐레이터 활동 · 리워드 · 정산 관련 문의를 도와드려요.</div>
-    </header>
-
-    <div id="chatBody" class="chat-body"></div>
-
-    <div class="footer">
-      <div class="input-box">
-        <textarea id="chatInput" placeholder="질문을 입력하고 Enter를 눌러보세요."></textarea>
-        <button id="sendBtn">전송</button>
+    <main class="main">
+      <div style="padding:12px 16px;border-bottom:1px solid #1f2937">
+        <div style="font-size:14px;font-weight:600">오늘의집 큐레이터 챗봇</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:2px">
+          큐레이터 활동 · 리워드 · 정산 관련 문의를 도와드려요.
+        </div>
       </div>
-    </div>
+      <div id="chatBody" class="chat-body"></div>
+      <div class="footer">
+        <div class="input-box">
+          <textarea id="chatInput" rows="1"
+            placeholder="질문을 입력하고 Enter를 눌러보세요. (Shift+Enter 줄바꿈)"></textarea>
+          <button id="sendBtn"><span id="sendLabel">전송</span></button>
+        </div>
+      </div>
+    </main>
   </div>
 
   <script>
-    const chatBody = document.getElementById("chatBody");
-    const chatInput = document.getElementById("chatInput");
-    const sendBtn = document.getElementById("sendBtn");
+    window.addEventListener("DOMContentLoaded", () => {
+      /* ============================
+         1) 유틸 함수들
+         ============================ */
 
-    const sessionId = "web-" + Math.random().toString(36).slice(2);
-
-    function addMessage(text, role) {
-      const div = document.createElement("div");
-      div.className = "msg " + role;
-      div.textContent = text;
-      chatBody.appendChild(div);
-      chatBody.scrollTop = chatBody.scrollHeight;
-    }
-
-    function setLoading(isLoading) {
-      sendBtn.disabled = isLoading;
-    }
-
-    async function sendMessage(text) {
-      if (!text.trim()) return;
-
-      addMessage(text.trim(), "user");
-      setLoading(true);
-
-      try {
-        // 1️⃣ ask
-        const askRes = await fetch("/api/ask", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: text.trim(),
-            sessionId
-          })
+      function linkify(text) {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        return text.replace(urlRegex, (url) => {
+          return `<a href="${url}" target="_blank" style="color:#38bdf8; text-decoration:underline;">${url}</a>`;
         });
+      }
 
-        if (!askRes.ok) throw new Error("ASK failed: " + askRes.status);
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
 
-        const { requestId } = await askRes.json();
+      const chatBody   = document.getElementById("chatBody");
+      const chatInput  = document.getElementById("chatInput");
+      const sendBtn    = document.getElementById("sendBtn");
+      const sendLabel  = document.getElementById("sendLabel");
+      const sessionId  = "sess_" + Math.random().toString(36).slice(2);
 
-        // 2️⃣ poll result
-        const start = Date.now();
-        const timeout = 90_000;
+      if (!chatBody || !chatInput || !sendBtn || !sendLabel) {
+        console.error("UI element not found.", {
+          chatBody: !!chatBody,
+          chatInput: !!chatInput,
+          sendBtn: !!sendBtn,
+          sendLabel: !!sendLabel,
+        });
+        return;
+      }
 
-        while (true) {
-          if (Date.now() - start > timeout) {
-            addMessage("답변이 지연되고 있어요. 잠시 후 다시 시도해 주세요.", "bot");
-            break;
-          }
+      /* ============================
+         2) 메시지 출력
+         ============================ */
+      function addMessage(text, role) {
+        const row = document.createElement("div");
+        row.className = "row " + role;
 
-          const res = await fetch(`/api/result?requestId=${requestId}`, {
-            cache: "no-store"
-          });
+        const bubble = document.createElement("div");
+        bubble.className = "bubble " + role;
+        bubble.innerHTML = linkify(text);
+
+        row.appendChild(bubble);
+        chatBody.appendChild(row);
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+
+      function setLoading(isLoading) {
+        sendBtn.disabled = isLoading;
+        sendLabel.textContent = isLoading ? "답변 생성 중..." : "전송";
+      }
+
+      /* ============================
+         3) /api/result 폴링
+         ============================ */
+      async function pollResult(requestId, timeoutMs = 60000) {
+        const started = Date.now();
+
+        while (Date.now() - started < timeoutMs) {
+          const res = await fetch(
+            `/api/result?requestId=${encodeURIComponent(requestId)}`,
+            { method: "GET" }
+          );
 
           if (res.status === 202) {
-            await new Promise(r => setTimeout(r, 1200));
+            // 아직 pending
+            await sleep(800);
             continue;
           }
 
+          if (!res.ok) {
+            throw new Error(`RESULT failed: ${res.status}`);
+          }
+
           const data = await res.json();
-
-          if (data.status === "ready") {
-            addMessage(data.answer || "답변을 불러오지 못했어요.", "bot");
-            break;
+          if (data && data.answer) {
+            return data.answer;
           }
 
-          if (data.status === "error") {
-            addMessage("네트워크 오류가 발생했어요.\n(디버그: " + data.error + ")", "bot");
-            break;
-          }
-
-          await new Promise(r => setTimeout(r, 1200));
+          await sleep(800);
         }
 
-      } catch (e) {
-        addMessage("네트워크 오류가 발생했어요.\n(디버그: " + e.message + ")", "bot");
-      } finally {
-        setLoading(false);
+        return "답변이 지연되고 있어요. 잠시 후 다시 시도해 주세요.";
       }
-    }
 
-    sendBtn.addEventListener("click", () => {
-      const text = chatInput.value;
-      chatInput.value = "";
-      sendMessage(text);
-    });
+      /* ============================
+         4) /api/ask 호출 + 결과 폴링
+         ============================ */
+      async function sendMessage(text) {
+        const trimmed = text.trim();
+        if (!trimmed) return;
 
-    chatInput.addEventListener("keydown", e => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendBtn.click();
+        addMessage(trimmed, "user");
+        setLoading(true);
+
+        try {
+          // 1) 질문 등록 & requestId 받기
+          const askRes = await fetch("/api/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: trimmed, sessionId }),
+          });
+
+          if (!askRes.ok) {
+            throw new Error("ASK failed: " + askRes.status);
+          }
+
+          const askData = await askRes.json();
+          const requestId = askData.requestId;
+          if (!requestId) {
+            throw new Error("ASK missing requestId");
+          }
+
+          // 2) 결과 폴링
+          const answer = await pollResult(requestId, 60000);
+          addMessage(answer, "bot");
+        } catch (e) {
+          addMessage(
+            "네트워크 오류가 발생했어요. 다시 시도해 주세요.\n" +
+            "(디버그: " + (e?.message || e) + ")",
+            "bot"
+          );
+          console.error(e);
+        } finally {
+          setLoading(false);
+        }
       }
-    });
 
-    addMessage("안녕하세요! 무엇을 도와드릴까요?", "bot");
+      /* ============================
+         5) 초기 인사말
+         ============================ */
+      addMessage(
+        "안녕하세요. 오늘의집 큐레이터 챗봇입니다.\n" +
+        "큐레이터 활동, 링크 발급, 정산 등 궁금한 내용을 편하게 물어보세요 :)\n" +
+        "(답변까지 약 10초 소요)",
+        "bot"
+      );
+
+      /* ============================
+         6) 이벤트 바인딩
+         ============================ */
+      sendBtn.addEventListener("click", () => {
+        const text = chatInput.value;
+        chatInput.value = "";
+        sendMessage(text);
+      });
+
+      // 한글 입력 중복 전송 방지
+      let isComposing = false;
+      chatInput.addEventListener("compositionstart", () => {
+        isComposing = true;
+      });
+      chatInput.addEventListener("compositionend", () => {
+        isComposing = false;
+      });
+
+      chatInput.addEventListener("keydown", (e) => {
+        if (isComposing) return;
+
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          const text = chatInput.value;
+          chatInput.value = "";
+          sendMessage(text);
+        }
+      });
+    });
   </script>
 </body>
 </html>
