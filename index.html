@@ -142,52 +142,58 @@
     }
 
     /* ============================
-       3) 서버로 메시지 전송 (수정됨)
+       3) 서버로 메시지 전송 (타임아웃 설정 추가됨)
        ============================ */
     async function sendMessage(text) {
       if (!text.trim()) return;
       addMessage(text.trim(), "user");
       setLoading(true);
 
+      // 1. 타임아웃 시간 설정 (여기서 60초로 설정함)
+      const TIME_OUT_MS = 60000; 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIME_OUT_MS);
+
       try {
-        // 모바일 타임아웃 방지 및 디버깅을 위한 옵션 추가
         const res = await fetch(WEBHOOK_URL, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
             "Accept": "application/json" 
           },
-          // 캐시 방지 및 연결 유지 시도
           cache: "no-store", 
-          // keepalive는 페이지 이동시에도 요청 유지(선택사항이나 모바일에 도움될 수 있음)
-          // 단, 페이로드 크기 제한이 있으니 긴 텍스트 전송시 주의 필요. 에러나면 false로 변경.
-          keepalive: false, 
+          keepalive: false,
+          // 2. 신호 연결: 60초가 지나면 controller가 abort 신호를 보냄
+          signal: controller.signal, 
           body: JSON.stringify({ message: text.trim(), sessionId })
         });
 
+        // 응답이 오면 타이머 해제 (중요)
+        clearTimeout(timeoutId);
+
         if (!res.ok) {
-           // 서버 에러(500 등) 발생 시
            throw new Error(`서버 오류 (${res.status})`);
         }
 
         const data = await res.json();
         const answer = (data && data.answer) ||
-          "답변을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.";
+          "답변을 불러오지 못했어요.";
 
         addMessage(answer, "bot");
 
       } catch (e) {
         console.error(e);
-        // 에러 메시지를 화면에 구체적으로 표시 (디버깅용)
-        let errorMsg = "네트워크 오류가 발생했어요.";
+        let errorMsg = "오류가 발생했어요.";
         
-        // 모바일에서 자주 발생하는 에러 유형 체크
-        if (e.message.includes("Failed to fetch")) {
-          errorMsg += "\n(인터넷 연결이 불안정하거나 응답 시간이 너무 길어 끊겼을 수 있습니다.)";
-        } else if (e.name === 'AbortError') {
-          errorMsg += "\n(응답 시간이 초과되었습니다.)";
+        // 3. 에러 원인 분석
+        if (e.name === 'AbortError') {
+          // 우리가 설정한 60초가 지나서 강제로 끊은 경우
+          errorMsg = "답변 시간이 너무 오래 걸려 중단되었습니다. (60초 초과)";
+        } else if (e.message.includes("Failed to fetch")) {
+          // 60초가 안 지났는데 끊겼다면 -> 100% 서버나 통신사가 끊은 것
+          errorMsg = "네트워크 연결이 끊어졌어요. (서버에서 응답을 닫음)";
         } else {
-          errorMsg += `\n(사유: ${e.message})`;
+          errorMsg = `오류 내용: ${e.message}`;
         }
 
         addMessage(errorMsg, "bot");
